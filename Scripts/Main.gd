@@ -103,7 +103,6 @@ func start_game():
 		menu_camera.queue_free()
 		menu_camera = null
 		
-	# Instantiate and attach PassengerManager to coordinate passengers
 	var pm = Node.new()
 	pm.name = "PassengerManager"
 	pm.set_script(preload("res://Scripts/PassengerManager.gd"))

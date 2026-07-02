@@ -14,6 +14,7 @@ signal horn_blown
 var current_speed: float = 0.0 # km/h
 var current_throttle: float = 0.0 # 0.0 to 1.0 (0 is brake)
 var doors_open: bool = false
+var passenger_count: int = 0
 var global_door_progress_left: float = 0.0
 var global_door_progress_right: float = 0.0
 var approach_speed_limit: float = INF # set by Station to cap speed in zone
@@ -68,6 +69,26 @@ var is_preview: bool = false
 
 
 func _ready():
+	# Configure train speed characteristics based on scene path/name
+	var path = scene_file_path.to_lower()
+	var t_name = name.to_lower()
+	if "shinkansen" in path or "shinkansen" in t_name:
+		max_speed = 220.0
+		acceleration = 18.0
+		braking_force = 28.0
+	elif "catlinh" in path or "catlinh" in t_name:
+		max_speed = 80.0
+		acceleration = 8.0
+		braking_force = 18.0
+	elif "fast" in path or "fast" in t_name:
+		max_speed = 120.0
+		acceleration = 20.0
+		braking_force = 25.0
+	else:
+		max_speed = 100.0
+		acceleration = 10.0
+		braking_force = 20.0
+
 	if not is_preview:
 		add_to_group("train")
 	if not path_node:
@@ -128,10 +149,10 @@ func _ready():
 	for car in cars:
 		car.position.z = 0
 	
-	# Make Cabin camera current by default
+	# Make Car_1 camera current by default so player can see passengers boarding inside the car at start
 	if is_player_controlled and not is_preview:
 		for i in range(cameras.size()):
-			if cameras[i].name == "Cam_Cabin":
+			if cameras[i].name == "Cam_Car_1":
 				current_camera_index = i
 				cameras[i].make_current()
 				break
@@ -272,7 +293,9 @@ func _start_at_station():
 	force_position_update(train_progress)
 
 	# Start with doors open at the station
+	current_station = station
 	doors_open = true
+	call_deferred("emit_doors_opened")
 	print("Train spawned at station: ", station.station_name, " | progress: ", train_progress)
 
 func force_position_update(offset: float):
@@ -304,23 +327,31 @@ func _setup_cameras():
 	
 	# Add local cameras to individual cars
 	_add_camera("Cabin", car1, Vector3(0, 1.8, -8.0), Vector3(0, 0, 0))
+	
+	# Ultra-wide diagonal CCTV view for passenger cars (top right corner looking down and left)
+	var diag_pos = Vector3(1.2, 2.8, 8.0)
+	var diag_rot = Vector3(deg_to_rad(-25), deg_to_rad(15), 0)
+	var fov_wide = 100.0
+	
 	if cars.size() > 0:
-		_add_camera("Car_1", car1, Vector3(0, 2.0, 6.0), Vector3(0, 0, 0))
+		_add_camera("Car_1", car1, diag_pos, diag_rot, fov_wide)
 	if cars.size() > 1:
-		_add_camera("Car_2", car2, Vector3(0, 2.0, 0.0), Vector3(0, 0, 0))
+		_add_camera("Car_2", car2, diag_pos, diag_rot, fov_wide)
 	if cars.size() > 2:
 		var last_idx = cars.size()
-		_add_camera("Car_" + str(last_idx), car3, Vector3(0, 2.0, 0.0), Vector3(0, deg_to_rad(180), 0))
+		_add_camera("Car_" + str(last_idx), car3, diag_pos, diag_rot, fov_wide)
+		
 	_add_camera("Front", car1, Vector3(0, 1.0, -12.0), Vector3(0, 0, 0))
 	_add_camera("Side", car1, Vector3(25, 2, 0), Vector3(0, deg_to_rad(90), 0))
 	_add_camera("Isometric", car1, Vector3(30, 25, -10), Vector3(deg_to_rad(-35), deg_to_rad(135), 0))
 
-func _add_camera(cname: String, target_car: Node, pos: Vector3, rot: Vector3):
+func _add_camera(cname: String, target_car: Node, pos: Vector3, rot: Vector3, fov: float = 75.0):
 	var cam = Camera3D.new()
 	cam.name = "Cam_" + cname
 	target_car.add_child(cam)
 	cam.position = pos
 	cam.rotation = rot
+	cam.fov = fov
 	cameras.append(cam)
 
 
@@ -397,6 +428,13 @@ func _animate_doors(delta):
 	if doors_open:
 		if current_station:
 			var side = current_station.platform_side
+			var plat_node = current_station.get_node_or_null("Platform")
+			if plat_node and cars.size() > 0:
+				var car = cars[0]
+				var to_plat = plat_node.global_position - car.global_position
+				var dot_right = car.global_transform.basis.x.dot(to_plat)
+				side = 1 if dot_right > 0 else -1
+				
 			if side == -1: open_minus_x = true # -1 means Left (-X)
 			elif side == 1: open_plus_x = true # 1 means Right (+X)
 			else: 
@@ -459,11 +497,14 @@ func _update_physics(delta):
 		var target_offset = station_offset + 45.0 if direction_forward else station_offset - 45.0
 		var remaining_dist = target_offset - train_progress if direction_forward else train_progress - target_offset
 		
-		if remaining_dist > 0 and remaining_dist < 130.0:
+		# Calculate dynamic braking distance with safety margin based on max speed
+		var braking_dist = max((max_speed * max_speed) / (7.2 * braking_force) * 1.8, 100.0)
+		
+		if remaining_dist > 0 and remaining_dist < braking_dist:
 			is_auto_parking = true
 			current_throttle = 0.0
 			# Giảm tốc từ từ: Tốc độ giảm tuyến tính theo khoảng cách còn lại
-			var ideal_speed = max_speed * (remaining_dist / 130.0)
+			var ideal_speed = max_speed * (remaining_dist / braking_dist)
 			ideal_speed = max(ideal_speed, 2.0) if remaining_dist > 2.0 else ideal_speed
 			
 			if current_speed > ideal_speed:
@@ -526,7 +567,8 @@ func _update_physics(delta):
 		var station_offset = path_node.curve.get_closest_offset(station_local)
 		var target_offset = station_offset + 45.0 if direction_forward else station_offset - 45.0
 		var remaining_dist = target_offset - train_progress if direction_forward else train_progress - target_offset
-		if remaining_dist > 0 and remaining_dist < 140.0:
+		var braking_dist = max((max_speed * max_speed) / (7.2 * braking_force) * 1.8, 100.0)
+		if remaining_dist > 0 and remaining_dist < braking_dist + 10.0:
 			is_braking_near_station = true
 			
 	if is_braking_near_station and speed_before > current_speed and current_speed > 0.5:
@@ -722,6 +764,13 @@ func get_open_door_global_positions() -> Array:
 	var is_cat_linh = "catlinh" in str(name).to_lower() or "catlinh" in scene_file_path.to_lower()
 	
 	var side = current_station.platform_side # -1: Left (-X), 1: Right (+X), 0: Both
+	var plat_node = current_station.get_node_or_null("Platform")
+	if plat_node and follows.size() > 0:
+		var follow = follows[0]
+		var to_plat = plat_node.global_position - follow.global_position
+		var dot_right = follow.global_transform.basis.x.dot(to_plat)
+		side = 1 if dot_right > 0 else -1
+		
 	var open_left = (side == -1 or side == 0)
 	var open_right = (side == 1 or side == 0)
 	
@@ -742,19 +791,24 @@ func get_open_door_global_positions() -> Array:
 		var car_rotated = (is_last and direction_forward) or (not is_last and not direction_forward)
 		
 		for lx in local_xs:
-			# In unrotated car: local Z = -1.5 is left (-X in world), local Z = 1.5 is right (+X in world)
-			# In rotated car: local Z = -1.5 is right (+X in world), local Z = 1.5 is left (-X in world)
 			if open_left:
-				var local_z = -1.5 if car_rotated else 1.5
+				var unrotated_pos = Vector3(-1.5, 0.0, 10.0 - lx)
+				var local_pos = -unrotated_pos if car_rotated else unrotated_pos
 				list.append({
-					"position": car.global_transform * Vector3(lx, 0.0, local_z),
-					"car": car
+					"position": car.global_transform * local_pos,
+					"car": car,
+					"door_index": lx
 				})
 			if open_right:
-				var local_z = 1.5 if car_rotated else -1.5
+				var unrotated_pos = Vector3(1.5, 0.0, 10.0 - lx)
+				var local_pos = -unrotated_pos if car_rotated else unrotated_pos
 				list.append({
-					"position": car.global_transform * Vector3(lx, 0.0, local_z),
-					"car": car
+					"position": car.global_transform * local_pos,
+					"car": car,
+					"door_index": lx
 				})
 				
 	return list
+
+func emit_doors_opened():
+	doors_opened.emit()

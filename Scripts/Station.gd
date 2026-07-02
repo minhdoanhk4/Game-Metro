@@ -14,6 +14,8 @@ var safe_zone_mesh: CSGBox3D = null
 var train_was_moving: bool = false
 var has_checked_parking: bool = false
 var welcome_played_this_stop: bool = false
+var time_at_station_without_opening: float = 0.0
+var penalty_applied: bool = false
 
 var welcome_audio: AudioStreamPlayer3D
 var bg_audio: AudioStreamPlayer3D
@@ -110,6 +112,8 @@ func _on_area_entered(area):
 		auto_open_timer = 0.0
 		has_checked_parking = false
 		welcome_played_this_stop = false
+		time_at_station_without_opening = 0.0
+		penalty_applied = false
 		print("[Station ", station_name, "] Started tracking new train. doors_opened_here=", doors_opened_here, ", stop_completed=false")
 		train_was_moving = true
 		if train.is_player_controlled and safe_zone_mesh:
@@ -148,6 +152,8 @@ func reset_for_next_lap():
 	stop_completed = false
 	doors_opened_here = false
 	auto_open_timer = 0.0
+	time_at_station_without_opening = 0.0
+	penalty_applied = false
 
 func _process(delta):
 	_update_station_audio(delta)
@@ -208,9 +214,25 @@ func _process(delta):
 		if auto_open_timer >= 1.0 and not welcome_played_this_stop:
 			welcome_played_this_stop = true
 			if welcome_audio and welcome_audio.stream: welcome_audio.play()
+			
+	if speed < 2.0 and not doors_opened_here and not stop_completed:
+		if train_in_station.is_player_controlled and not penalty_applied:
+			time_at_station_without_opening += delta
+			var limit = 10.0
+			if GameManager and "time_scale" in GameManager:
+				limit = 120.0 / GameManager.time_scale
+				
+			if time_at_station_without_opening >= limit:
+				penalty_applied = true
+				if GameManager:
+					GameManager.add_money(-50)
+				var hud = get_node_or_null("/root/Main/HUD")
+				if hud and hud.has_method("show_message"):
+					hud.show_message("Bị phạt 50$ vì đỗ lố 2 phút không mở cửa!")
 	else:
 		if speed >= 2.0:
 			auto_open_timer = 0.0  # reset if train moves again
+			time_at_station_without_opening = 0.0
 
 
 

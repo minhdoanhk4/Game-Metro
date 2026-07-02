@@ -1,7 +1,7 @@
 extends Node
 
 # Economy
-var money: int = 1000
+var money: int = 100
 var score: int = 0
 var skip_menu: bool = false
 var pass_by_pass: bool = false

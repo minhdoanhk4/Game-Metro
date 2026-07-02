@@ -22,6 +22,7 @@ signal main_menu_play
 @onready var throttle_slider = $ThrottlePanel/Margin/VBox/ControlHBox/ThrottleSlider
 # @onready var door_status removed
 @onready var money_label = $TopBar/MoneyLabel
+var passenger_label: Label = null
 # @onready var info_label removed
 @onready var clock_label = $TopBar/ClockPanel/ClockLabel
 @onready var route_bar_panel = $RouteBarPanel
@@ -70,9 +71,7 @@ var signal_label: Label
 var is_dragging_slider: bool = false
 var drone_fov: float = 75.0
 var drone_camera: Camera3D
-var cabin_monitor_panel: Control = null
-var cabin_monitor_car_rows: Array = [] # Array of {label_name, bar, label_count}
-var cabin_monitor_total_label: Label = null
+# Cabin monitor variables removed
 
 
 # Per-station per-lap approach state
@@ -100,6 +99,25 @@ func _ready():
 	GameManager.money_changed.connect(_on_money_changed)
 	_on_money_changed(GameManager.money)
 	
+	# Symmetrical passenger label setup
+	var top_bar = get_node_or_null("TopBar")
+	if top_bar:
+		passenger_label = Label.new()
+		passenger_label.name = "PassengerLabel"
+		passenger_label.anchors_preset = Control.PRESET_TOP_RIGHT
+		passenger_label.anchor_left = 1.0
+		passenger_label.anchor_right = 1.0
+		passenger_label.offset_left = -220.0
+		passenger_label.offset_top = 10.0
+		passenger_label.offset_right = -20.0
+		passenger_label.offset_bottom = 40.0
+		passenger_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		passenger_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		passenger_label.add_theme_font_size_override("font_size", 24)
+		passenger_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		passenger_label.text = "Khách: 0"
+		top_bar.add_child(passenger_label)
+	
 	GameManager.time_updated.connect(_on_time_updated)
 	call_deferred("_init_route_bar")
 	
@@ -109,7 +127,7 @@ func _ready():
 		big_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		big_warning_label.add_theme_font_size_override("font_size", 18)
 	
-	_create_cabin_monitor()
+	# Cabin monitor creation removed
 
 	if play_btn: play_btn.pressed.connect(_on_play_pressed)
 	if quit_btn: quit_btn.pressed.connect(_on_quit_pressed)
@@ -306,6 +324,14 @@ func _ready():
 		speed_progress = custom_speed
 
 func _process(_delta):
+	# Update passenger count
+	var pm = get_node_or_null("/root/Main/PassengerManager")
+	if passenger_label:
+		if train_ref and "passenger_count" in train_ref:
+			passenger_label.text = "Khách: %d" % train_ref.passenger_count
+		elif pm:
+			passenger_label.text = "Khách: %d" % pm.get_total_train_passengers()
+
 	# Lazily find train
 	if train_ref and train_ref.car1:
 		update_route_bar(train_ref.car1.global_position.z)
@@ -430,228 +456,11 @@ func _process(_delta):
 			drone_camera.global_position = drone_camera.global_position.lerp(target_pos + offset, _delta * 5.0)
 			drone_camera.look_at(target_pos, Vector3.UP)
 
-	# Cabin monitor overlay (visible only in car camera views)
-	_update_cabin_monitor()
+	# Cabin monitor overlay removed
 
 	# PiP camera removed
 
-func _create_cabin_monitor():
-	# Create an elegant cabin monitor overlay panel (bottom-right corner)
-	cabin_monitor_panel = PanelContainer.new()
-	cabin_monitor_panel.name = "CabinMonitor"
-	
-	# Style - dark glassmorphism
-	var bg = StyleBoxFlat.new()
-	bg.bg_color = Color(0.03, 0.06, 0.12, 0.88)
-	bg.border_width_left = 2
-	bg.border_width_right = 2
-	bg.border_width_top = 2
-	bg.border_width_bottom = 2
-	bg.border_color = Color(0.2, 0.6, 1.0, 0.7)
-	bg.corner_radius_top_left = 12
-	bg.corner_radius_top_right = 12
-	bg.corner_radius_bottom_left = 12
-	bg.corner_radius_bottom_right = 12
-	bg.shadow_color = Color(0.0, 0.3, 0.8, 0.4)
-	bg.shadow_size = 10
-	cabin_monitor_panel.add_theme_stylebox_override("panel", bg)
-	
-	# Anchor to bottom-right
-	cabin_monitor_panel.anchors_preset = Control.PRESET_BOTTOM_RIGHT
-	cabin_monitor_panel.anchor_left = 1.0
-	cabin_monitor_panel.anchor_top = 1.0
-	cabin_monitor_panel.anchor_right = 1.0
-	cabin_monitor_panel.anchor_bottom = 1.0
-	cabin_monitor_panel.offset_left = -260.0
-	cabin_monitor_panel.offset_top = -220.0
-	cabin_monitor_panel.offset_right = -12.0
-	cabin_monitor_panel.offset_bottom = -100.0
-	cabin_monitor_panel.visible = false
-	
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
-	cabin_monitor_panel.add_child(margin)
-	
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	vbox.custom_minimum_size = Vector2(220, 0)
-	margin.add_child(vbox)
-	
-	# Title row
-	var title_hbox = HBoxContainer.new()
-	vbox.add_child(title_hbox)
-	
-	var icon_label = Label.new()
-	icon_label.text = "🚇"
-	icon_label.add_theme_font_size_override("font_size", 16)
-	title_hbox.add_child(icon_label)
-	
-	var title = Label.new()
-	title.text = "  CABIN MONITOR"
-	title.add_theme_font_size_override("font_size", 13)
-	title.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0))
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_hbox.add_child(title)
-	
-	var sep = HSeparator.new()
-	sep.modulate = Color(0.2, 0.6, 1.0, 0.5)
-	vbox.add_child(sep)
-	
-	# Car rows (we create 3 rows max, will be shown/hidden based on car count)
-	cabin_monitor_car_rows.clear()
-	for i in range(3):
-		var row_container = VBoxContainer.new()
-		row_container.add_theme_constant_override("separation", 2)
-		vbox.add_child(row_container)
-		
-		var row_header = HBoxContainer.new()
-		row_container.add_child(row_header)
-		
-		# Car icon + name
-		var car_label = Label.new()
-		car_label.text = "TOA %d" % (i + 1)
-		car_label.add_theme_font_size_override("font_size", 11)
-		car_label.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
-		car_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row_header.add_child(car_label)
-		
-		# Passenger count
-		var count_label = Label.new()
-		count_label.text = "0 khách"
-		count_label.add_theme_font_size_override("font_size", 12)
-		count_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.6))
-		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		row_header.add_child(count_label)
-		
-		# Progress bar for capacity visualization
-		var bar = ProgressBar.new()
-		bar.max_value = 15.0
-		bar.value = 0.0
-		bar.custom_minimum_size = Vector2(0, 8)
-		bar.show_percentage = false
-		var bar_bg = StyleBoxFlat.new()
-		bar_bg.bg_color = Color(0.1, 0.15, 0.25)
-		bar_bg.corner_radius_top_left = 4
-		bar_bg.corner_radius_top_right = 4
-		bar_bg.corner_radius_bottom_left = 4
-		bar_bg.corner_radius_bottom_right = 4
-		var bar_fill = StyleBoxFlat.new()
-		bar_fill.bg_color = Color(0.2, 0.7, 1.0)
-		bar_fill.corner_radius_top_left = 4
-		bar_fill.corner_radius_top_right = 4
-		bar_fill.corner_radius_bottom_left = 4
-		bar_fill.corner_radius_bottom_right = 4
-		bar.add_theme_stylebox_override("background", bar_bg)
-		bar.add_theme_stylebox_override("fill", bar_fill)
-		row_container.add_child(bar)
-		
-		cabin_monitor_car_rows.append({
-			"container": row_container,
-			"name_label": car_label,
-			"count_label": count_label,
-			"bar": bar
-		})
-	
-	# Total row separator
-	var sep2 = HSeparator.new()
-	sep2.modulate = Color(0.2, 0.6, 1.0, 0.4)
-	vbox.add_child(sep2)
-	
-	# Total passengers label
-	var total_hbox = HBoxContainer.new()
-	vbox.add_child(total_hbox)
-	
-	var total_title = Label.new()
-	total_title.text = "TỔNG:"
-	total_title.add_theme_font_size_override("font_size", 12)
-	total_title.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
-	total_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	total_hbox.add_child(total_title)
-	
-	var total_count = Label.new()
-	total_count.name = "TotalCount"
-	total_count.text = "0 khách"
-	total_count.add_theme_font_size_override("font_size", 14)
-	total_count.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-	total_hbox.add_child(total_count)
-	cabin_monitor_total_label = total_count  # Cache direct reference
-	
-	add_child(cabin_monitor_panel)
-
-func _update_cabin_monitor():
-	if not cabin_monitor_panel:
-		return
-	
-	# Determine if we're in a car camera view
-	var in_car_cam = false
-	var current_car_name = ""
-	if train_ref and is_instance_valid(train_ref):
-		if train_ref.cameras.size() > 0 and train_ref.current_camera_index < train_ref.cameras.size():
-			var cam = train_ref.cameras[train_ref.current_camera_index]
-			current_car_name = cam.name
-			in_car_cam = current_car_name in ["Cam_Car_1", "Cam_Car_2", "Cam_Car_3", "Cam_Cabin"]
-	
-	cabin_monitor_panel.visible = in_car_cam
-	if not in_car_cam:
-		return
-	
-	# Get passenger counts from PassengerManager
-	var pm = get_node_or_null("/root/Main/PassengerManager")
-	if not pm:
-		return
-	
-	var per_car = pm.get_passengers_per_car()
-	var total = pm.get_total_train_passengers()
-	
-	# Update total count label (using cached reference)
-	if cabin_monitor_total_label:
-		cabin_monitor_total_label.text = "%d khách" % total
-	
-	# Update per-car rows
-	if train_ref and is_instance_valid(train_ref):
-		var cars = train_ref.cars
-		for i in range(cabin_monitor_car_rows.size()):
-			var row = cabin_monitor_car_rows[i]
-			if i < cars.size():
-				row["container"].visible = true
-				var car = cars[i]
-				var count = per_car.get(car, 0)
-				
-				# Highlight the current camera's car
-				var car_cam_name = "Cam_Car_%d" % (i + 1)
-				var is_active_car = (current_car_name == car_cam_name)
-				
-				if is_active_car:
-					row["name_label"].add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
-					row["name_label"].text = "▶ TOA %d" % (i + 1)
-				else:
-					row["name_label"].add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
-					row["name_label"].text = "   TOA %d" % (i + 1)
-				
-				row["count_label"].text = "%d khách" % count
-				row["bar"].value = count
-				
-				# Color bar based on fullness
-				var fill_ratio = float(count) / 15.0
-				var fill_color: Color
-				if fill_ratio < 0.5:
-					fill_color = Color(0.2, 0.8, 0.4) # Green - còn chỗ
-				elif fill_ratio < 0.8:
-					fill_color = Color(0.9, 0.7, 0.1) # Yellow - gần đầy
-				else:
-					fill_color = Color(0.9, 0.2, 0.2) # Red - đầy
-				var fill_style = StyleBoxFlat.new()
-				fill_style.bg_color = fill_color
-				fill_style.corner_radius_top_left = 4
-				fill_style.corner_radius_top_right = 4
-				fill_style.corner_radius_bottom_left = 4
-				fill_style.corner_radius_bottom_right = 4
-				row["bar"].add_theme_stylebox_override("fill", fill_style)
-			else:
-				row["container"].visible = false
+# Cabin monitor functions removed
 
 func _find_node_by_name(node: Node, node_name: String) -> Node:
 	if node.name == node_name:
