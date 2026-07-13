@@ -68,6 +68,39 @@ var is_preview: bool = false
 
 
 
+func apply_livery(livery_name: String):
+	if livery_name == "":
+		# Remove livery
+		for car in cars:
+			var body = car.get_node_or_null("Body")
+			if body and body is CSGShape3D:
+				body.set_instance_shader_parameter("use_livery", false)
+		return
+		
+	var path = "res://Assets/livery/" + livery_name
+	var tex = load(path)
+	if tex is Image:
+		tex = ImageTexture.create_from_image(tex)
+	
+	if tex:
+		for car in cars:
+			var body = car.get_node_or_null("Body")
+			if body and body is CSGShape3D:
+				# Use set_instance_shader_parameter for instance uniforms, but since livery_texture is a regular uniform, 
+				# we might need to duplicate the material. However, since the shader has instance uniform bool, 
+				# we can set the instance uniform and modify the material parameter.
+				# To avoid affecting all trains (if they share material), we should make the material unique to this train instance.
+				
+				# We will duplicate the material if not already unique
+				var mat = body.material
+				if mat:
+					if not mat.resource_local_to_scene:
+						mat = mat.duplicate()
+						body.material = mat
+						
+					mat.set_shader_parameter("livery_texture", tex)
+					body.set_instance_shader_parameter("use_livery", true)
+
 func _ready():
 	# Configure train speed characteristics based on scene path/name
 	var path = scene_file_path.to_lower()
@@ -145,9 +178,14 @@ func _ready():
 
 	_setup_cameras()
 	
+	var my_livery = GameManager.get_current_livery(scene_file_path)
+	if my_livery != "":
+		apply_livery(my_livery)
+	
 	# Reset local Z offsets of the cars so they attach directly to followers
-	for car in cars:
-		car.position.z = 0
+	if not is_preview:
+		for car in cars:
+			car.position.z = 0
 	
 	# Make Car_1 camera current by default so player can see passengers boarding inside the car at start
 	if is_player_controlled and not is_preview:

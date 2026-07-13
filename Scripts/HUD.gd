@@ -2,13 +2,10 @@ extends CanvasLayer
 
 signal main_menu_play
 
-@onready var main_menu_panel = $MainMenuPanel
-@onready var play_btn = $MainMenuPanel/Panel/VBoxContainer/PlayBtn
-@onready var quit_btn = $MainMenuPanel/Panel/VBoxContainer/QuitBtn
+var shop_instance: Node = null
 
-@onready var train_select_panel = $TrainSelectPanel
-@onready var train1_btn = $TrainSelectPanel/VBoxContainer/HBoxContainer/Train1Btn
-@onready var train2_btn = $TrainSelectPanel/VBoxContainer/HBoxContainer/Train2Btn
+var is_dragging_train: bool = false
+var last_mouse_x: float = 0.0
 
 @onready var game_over_panel = $GameOverPanel
 @onready var reason_label = $GameOverPanel/Panel/VBoxContainer/ReasonLabel
@@ -47,8 +44,6 @@ var station_names = ["Bến Thành", "Nhà hát TP", "Ba Son", "Văn Thánh", "T
 # @onready var toggle_cam_btn = $PiP_Container/ToggleCamBtn
 
 var train_ref: Node = null
-var shop_instance: Node = null
-var shop_scene = preload("res://Scenes/Shop.tscn")
 
 var world_cameras = []
 var current_pip_index = 0
@@ -129,31 +124,26 @@ func _ready():
 	
 	# Cabin monitor creation removed
 
-	if play_btn: play_btn.pressed.connect(_on_play_pressed)
-	if quit_btn: quit_btn.pressed.connect(_on_quit_pressed)
-	if train1_btn: train1_btn.pressed.connect(func(): _on_train_selected(true))
-	if train2_btn: train2_btn.pressed.connect(func(): _on_train_selected(false))
+	if shop_button:
+		shop_button.pressed.connect(_on_depot_shop_pressed)
+		
+	# Livery logic removed to use Shop.tscn
 	if restart_btn: restart_btn.pressed.connect(_on_restart_pressed)
 	if quit_btn2: quit_btn2.pressed.connect(_on_quit_pressed)
 
 	if GameManager.skip_menu:
 		get_tree().paused = false
-		main_menu_panel.hide()
-		train_select_panel.hide()
-		game_over_panel.hide()
-		red_flash.hide()
+		if has_node("Dashboard"): $Dashboard.show()
+		if has_node("ThrottlePanel"): $ThrottlePanel.show()
+		if has_node("RouteBarPanel"): $RouteBarPanel.show()
+		if has_node("ShopButton"): $ShopButton.show()
 		# Use call_deferred to emit main_menu_play because it connects to Main which might not be ready yet
 		call_deferred("emit_signal", "main_menu_play")
 	else:
 		get_tree().paused = true
-		main_menu_panel.hide()
-		train_select_panel.hide()
-		game_over_panel.hide()
-		red_flash.hide()
 		_create_depot_menu()
 
-	if shop_button:
-		shop_button.pressed.connect(_on_shop_pressed)
+
 
 	# if toggle_cam_btn:
 	# 	toggle_cam_btn.pressed.connect(_on_toggle_pip_cam)
@@ -529,15 +519,37 @@ func _update_station_warnings(speed: float):
 
 # ── Helper: called when doors OPEN ─────────────────────────────────────────
 
-func _on_play_pressed():
-	main_menu_panel.hide()
-	train_select_panel.show()
+func _on_shop_pressed(target_path: String = ""):
+	if not is_instance_valid(shop_instance):
+		var shop_scene = load("res://Scenes/Shop.tscn")
+		if shop_scene:
+			shop_instance = shop_scene.instantiate()
+			add_child(shop_instance)
+	if shop_instance:
+		shop_instance.target_train_path = target_path
+		shop_instance.show()
+		if shop_instance.has_method("refresh_train_model"):
+			shop_instance.refresh_train_model()
 
-func _on_train_selected(is_train_1: bool):
-	train_select_panel.hide()
-	GameManager.set_train_selection(is_train_1)
-	get_tree().paused = false
-	main_menu_play.emit()
+func _on_depot_shop_pressed():
+	_on_shop_pressed(GameManager.train_list[current_preview_index]["path"])
+
+func _unhandled_input(event):
+	if depot_menu_container and is_instance_valid(depot_menu_container):
+		if event is InputEventMouseButton:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				if event.pressed:
+					is_dragging_train = true
+					last_mouse_x = event.position.x
+				else:
+					is_dragging_train = false
+		elif event is InputEventMouseMotion:
+			if is_dragging_train:
+				var delta_x = event.position.x - last_mouse_x
+				last_mouse_x = event.position.x
+				var main_scene = get_tree().current_scene
+				if main_scene and main_scene.has_method("rotate_preview_camera"):
+					main_scene.rotate_preview_camera(delta_x * 0.01)
 
 func _on_quit_pressed():
 	get_tree().quit()
@@ -618,11 +630,13 @@ func _close_map():
 		main_scene.set_map_lighting_active(false)
 
 func _set_map_view_mode(mode: String):
-	var main_scene = get_tree().current_scene
-	if main_scene:
-		var scenery = main_scene.get_node_or_null("SceneryManager")
-		if scenery and scenery.has_method("set_view_mode"):
-			scenery.set_view_mode(mode)
+	var scenery = get_node_or_null("/root/Main/SceneryManager")
+	if not scenery:
+		var main_scene = get_tree().current_scene
+		if main_scene:
+			scenery = main_scene.get_node_or_null("SceneryManager")
+	if scenery and scenery.has_method("set_view_mode"):
+		scenery.set_view_mode(mode)
 
 func _on_money_changed(new_money: int):
 	money_label.text = "$ " + str(new_money)
@@ -630,12 +644,7 @@ func _on_money_changed(new_money: int):
 func show_message(msg: String):
 	show_big_warning(msg, true)
 
-func _on_shop_pressed():
-	if shop_instance == null:
-		shop_instance = shop_scene.instantiate()
-		add_child(shop_instance)
-	else:
-		shop_instance.show()
+
 
 func _on_cam_btn_pressed():
 	var event = InputEventKey.new()
@@ -1049,10 +1058,10 @@ func _create_depot_menu():
 		$TopBar.show()
 		
 	var bottom_panel = Panel.new()
-	bottom_panel.custom_minimum_size = Vector2(500, 160)
+	bottom_panel.custom_minimum_size = Vector2(500, 220)
 	bottom_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	bottom_panel.offset_left = -250
-	bottom_panel.offset_top = -200
+	bottom_panel.offset_top = -260
 	bottom_panel.offset_right = 250
 	bottom_panel.offset_bottom = -40
 	
@@ -1115,6 +1124,13 @@ func _create_depot_menu():
 	action_btn.custom_minimum_size = Vector2(280, 45)
 	action_btn.pressed.connect(_on_depot_action)
 	vbox.add_child(action_btn)
+	
+	var depot_shop_btn = Button.new()
+	depot_shop_btn.text = "CỬA HÀNG LIVERY"
+	depot_shop_btn.custom_minimum_size = Vector2(280, 45)
+	depot_shop_btn.pressed.connect(_on_depot_shop_pressed)
+	vbox.add_child(depot_shop_btn)
+	apply_custom_btn_style(depot_shop_btn, Color(0.8, 0.4, 0.15))
 	
 	var quit_btn_d = Button.new()
 	quit_btn_d.text = "THOÁT GAME"

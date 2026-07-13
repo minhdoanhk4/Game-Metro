@@ -64,7 +64,9 @@ func _flush_tree_multimeshes():
 
 
 func _ready():
-	main_scene = get_node_or_null("/root/Main")
+	main_scene = get_parent()
+	if not main_scene or not main_scene.has_node("Path3D_1"):
+		main_scene = get_node_or_null("/root/Main")
 	if not main_scene:
 		main_scene = self
 		
@@ -922,8 +924,8 @@ func _spawn_tunnel_lights(root: Node3D, pos: Vector3, offset: float, angle_y: fl
 	# Dimmest, sparse track lights
 	# Tunnels are mostly dark except around the track
 	
-	# Only spawn every 80 meters (offset % 80 == 0) to make it sparse
-	if int(offset) % 80 != 0:
+	# Only spawn every 20 meters to illuminate the tunnel well
+	if int(round(offset)) % 20 != 0:
 		return
 		
 	var tunnel_node = Node3D.new()
@@ -942,9 +944,9 @@ func _spawn_tunnel_lights(root: Node3D, pos: Vector3, offset: float, angle_y: fl
 	
 	var light_l = OmniLight3D.new()
 	light_l.position = Vector3(-8.8, 2.0, 0.0)
-	light_l.omni_range = 15.0
+	light_l.omni_range = 30.0
 	light_l.light_color = Color(1.0, 0.85, 0.6) # Warm incandescent glow
-	light_l.light_energy = 0.5
+	light_l.light_energy = 1.5
 	# Tránh rò rỉ ánh sáng lên mặt nước bằng cách bật shadow trong vùng sông Sài Gòn
 	light_l.shadow_enabled = abs(tunnel_node.position.z - 1750.0) < 400.0
 	tunnel_node.add_child(light_l)
@@ -958,9 +960,9 @@ func _spawn_tunnel_lights(root: Node3D, pos: Vector3, offset: float, angle_y: fl
 	
 	var light_r = OmniLight3D.new()
 	light_r.position = Vector3(8.8, 2.0, 0.0)
-	light_r.omni_range = 15.0
+	light_r.omni_range = 30.0
 	light_r.light_color = Color(1.0, 0.85, 0.6)
-	light_r.light_energy = 0.5
+	light_r.light_energy = 1.5
 	# Tránh rò rỉ ánh sáng lên mặt nước bằng cách bật shadow trong vùng sông Sài Gòn
 	light_r.shadow_enabled = abs(tunnel_node.position.z - 1750.0) < 400.0
 	tunnel_node.add_child(light_r)
@@ -1188,17 +1190,17 @@ func set_view_mode(mode: String):
 	
 	if mode == "xray":
 		mat_grass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat_grass.albedo_color.a = 0.3
+		mat_grass.albedo_color = Color(mat_grass.albedo_color, 0.3)
 		if city_root: city_root.visible = true
 		if trees_root: trees_root.visible = true
 	elif mode == "realistic":
 		mat_grass.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-		mat_grass.albedo_color.a = 1.0
+		mat_grass.albedo_color = Color(mat_grass.albedo_color, 1.0)
 		if city_root: city_root.visible = true
 		if trees_root: trees_root.visible = true
 	elif mode == "system":
 		mat_grass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat_grass.albedo_color.a = 0.0
+		mat_grass.albedo_color = Color(mat_grass.albedo_color, 0.0)
 		if city_root: city_root.visible = false
 		if trees_root: trees_root.visible = false
 
@@ -1216,12 +1218,13 @@ func _generate_track_sleepers(path_node: Path3D, mat: Material):
 	multimesh.instance_count = count
 	
 	var mesh = BoxMesh.new()
-	mesh.size = Vector3(2.4, 0.05, 0.25)
+	mesh.size = Vector3(2.4, 0.1, 0.25)
 	mesh.material = mat
 	multimesh.mesh = mesh
 	
 	var mmi = MultiMeshInstance3D.new()
 	mmi.multimesh = multimesh
+	mmi.custom_aabb = AABB(Vector3(-10000, -2000, -10000), Vector3(20000, 4000, 20000))
 	mmi.name = "Sleepers_" + path_node.name
 	path_node.add_child(mmi)
 	
@@ -1245,7 +1248,7 @@ func _generate_track_sleepers(path_node: Path3D, mat: Material):
 		else:
 			tr.origin = pos
 			
-		tr.origin.y += 0.525 # Nổi lên ngay trên bệ bê tông (y=0.5) và dưới thanh sắt (y=0.6)
+		tr.origin.y += 0.55 # Nổi lên rõ ràng hơn (dày 0.1, Y đi từ 0.5 đến 0.6)
 		multimesh.set_instance_transform(i, tr)
 
 func _set_visibility_range(node: Node, max_dist: float):

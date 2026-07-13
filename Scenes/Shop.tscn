@@ -1,77 +1,176 @@
-[gd_scene load_steps=2 format=3 uid="uid://shop_scene_123"]
+[gd_scene load_steps=5 format=3 uid="uid://shop_scene_123"]
 
 [ext_resource type="Script" path="res://Scripts/Shop.gd" id="1_shop_script"]
 
+[sub_resource type="Environment" id="Environment_shop"]
+background_mode = 1
+background_color = Color(0.2, 0.25, 0.3, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_border"]
+bg_color = Color(0, 0, 0, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.8, 0.8, 0.8, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [node name="Shop" type="CanvasLayer"]
+process_mode = 3
 script = ExtResource("1_shop_script")
 
-[node name="Panel" type="Panel" parent="."]
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.05, 0.05, 0.95)
+
+[node name="TopBar" type="Panel" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 80.0
+grow_horizontal = 2
+
+[node name="MoneyLabel" type="Label" parent="TopBar"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 30.0
+offset_top = -20.0
+offset_right = 230.0
+offset_bottom = 20.0
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.2, 1, 0.2, 1)
+theme_override_font_sizes/font_size = 28
+text = "Tiền: $0"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="TopBar"]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -200.0
-offset_top = -150.0
+offset_top = -25.0
 offset_right = 200.0
-offset_bottom = 150.0
+offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 20
+alignment = 1
 
-[node name="Title" type="Label" parent="Panel"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_top = 20.0
-offset_bottom = 50.0
-grow_horizontal = 2
+[node name="PrevButton" type="Button" parent="TopBar/HBoxContainer"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "TRAIN SHOP"
-horizontal_alignment = 1
+text = "<"
 
-[node name="MoneyLabel" type="Label" parent="Panel"]
+[node name="LiveryNameLabel" type="Label" parent="TopBar/HBoxContainer"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "LIVERY NAME"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NextButton" type="Button" parent="TopBar/HBoxContainer"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = ">"
+
+[node name="CloseButton" type="Button" parent="TopBar"]
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
 anchor_right = 1.0
-offset_top = 60.0
-offset_bottom = 90.0
-grow_horizontal = 2
-text = "Money: $0"
-horizontal_alignment = 1
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -25.0
+offset_right = -30.0
+offset_bottom = 25.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 24
+text = "Đóng"
 
-[node name="VBox" type="VBoxContainer" parent="Panel"]
+[node name="BottomBar" type="Panel" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -100.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BuyApplyButton" type="Button" parent="BottomBar"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -20.0
-offset_right = 100.0
-offset_bottom = 60.0
+offset_left = -150.0
+offset_top = -30.0
+offset_right = 150.0
+offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 20
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Mua ($50)"
 
-[node name="BuyButton" type="Button" parent="Panel/VBox"]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-text = "Buy Fast Train"
-
-[node name="BackButton" type="Button" parent="Panel/VBox"]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-text = "Close Shop"
-
-[node name="InfoLabel" type="Label" parent="Panel"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
+[node name="PreviewFrame" type="PanelContainer" parent="."]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -40.0
-offset_bottom = -10.0
+offset_left = 40.0
+offset_top = 100.0
+offset_right = -40.0
+offset_bottom = -120.0
 grow_horizontal = 2
-grow_vertical = 0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_border")
+
+[node name="ViewportContainer" type="SubViewportContainer" parent="PreviewFrame"]
+layout_mode = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="PreviewFrame/ViewportContainer"]
+own_world_3d = true
+handle_input_locally = false
+size = Vector2i(1072, 428)
+render_target_update_mode = 4
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="PreviewFrame/ViewportContainer/SubViewport"]
+environment = SubResource("Environment_shop")
+
+[node name="Camera3D" type="Camera3D" parent="PreviewFrame/ViewportContainer/SubViewport"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 3, 12)
+fov = 60.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="PreviewFrame/ViewportContainer/SubViewport"]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0)
+light_energy = 1.5
+
+[node name="TrainPivot" type="Node3D" parent="PreviewFrame/ViewportContainer/SubViewport"]
+
+[node name="Instructions" type="Label" parent="PreviewFrame"]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
+theme_override_font_sizes/font_size = 18
+text = "(Giữ và kéo chuột để xoay tàu)"
 horizontal_alignment = 1

@@ -8,6 +8,9 @@ uniform vec3 base_color : source_color = vec3(0.85, 0.85, 0.85);
 instance uniform float door_progress_left = 0.0;
 instance uniform float door_progress_right = 0.0;
 
+instance uniform bool use_livery = false;
+uniform sampler2D livery_texture : source_color, filter_linear_mipmap;
+
 varying vec3 local_pos;
 
 void vertex() {
@@ -114,6 +117,18 @@ void fragment() {
             color = stripe_color; 
             is_window = false;
         }
+    }
+    
+    // --- Apply Livery ---
+    if (use_livery && center_W > 1.4 && (!has_nose || L < 18.5)) {
+        float livery_L = L;
+        if (is_sliding_door) {
+             if (L < door_center_for_window) livery_L = L + current_slide;
+             else livery_L = L - current_slide;
+        }
+        vec2 uv = vec2(livery_L / 20.0, 1.0 - (H / 3.5));
+        vec4 liv_col = texture(livery_texture, uv);
+        color = mix(color, liv_col.rgb, liv_col.a);
     }
     
     if (is_window) {

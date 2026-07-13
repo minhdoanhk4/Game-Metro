@@ -280,12 +280,14 @@ func _update_station_audio(_delta):
 	# Find the player train dynamically (cached to prevent lag)
 	if not is_instance_valid(cached_player_train):
 		var trains = get_tree().get_nodes_in_group("train")
-		if trains.size() > 0:
-			cached_player_train = trains[0]
+		for t in trains:
+			if t.get("is_player_controlled"):
+				cached_player_train = t
+				break
 			
 	var player_train = cached_player_train
 			
-	if not player_train:
+	if not player_train or not player_train.get("car1") or not is_instance_valid(player_train.car1):
 		if bg_audio and bg_audio.playing:
 			bg_audio.stop()
 		return

@@ -131,6 +131,32 @@ func buy_train(train_path: String, cost: int) -> bool:
 		return true
 	return false
 
+var owned_liveries: Array[String] = []
+var train_liveries: Dictionary = {}
+signal livery_changed(train_path: String, new_livery: String)
+
+func buy_livery(livery_name: String, cost: int) -> bool:
+	if money >= cost and not owned_liveries.has(livery_name):
+		money -= cost
+		owned_liveries.append(livery_name)
+		money_changed.emit(money)
+		return true
+	return false
+
+func apply_livery(livery_name: String, train_path: String = ""):
+	if train_path == "":
+		train_path = get_current_train_path()
+	train_liveries[train_path] = livery_name
+	livery_changed.emit(train_path, livery_name)
+
+func get_current_livery(train_path: String = "") -> String:
+	if train_path == "":
+		train_path = get_current_train_path()
+	if train_liveries.has(train_path):
+		return train_liveries[train_path]
+	return ""
+
+
 func select_train(index: int):
 	if index >= 0 and index < train_list.size():
 		current_train_index = index

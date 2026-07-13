@@ -23,6 +23,8 @@ func _ready():
 		if we.environment:
 			original_env = we.environment.duplicate()
 	
+	GameManager.livery_changed.connect(_on_livery_changed)
+
 	# Instantiate and attach SceneryManager to generate pillars and lights
 	var sm = Node.new()
 	sm.name = "SceneryManager"
@@ -50,7 +52,12 @@ func _spawn_preview_train(index: int):
 		preview_train_instance.is_player_controlled = false
 		preview_train_instance.process_mode = Node.PROCESS_MODE_ALWAYS
 		$Path3D_1.add_child(preview_train_instance)
+		var current_liv = GameManager.get_current_livery(path)
+		if current_liv != "" and preview_train_instance.has_method("apply_livery"):
+			preview_train_instance.apply_livery(current_liv)
 		call_deferred("_setup_preview_camera_and_position", preview_train_instance)
+
+var menu_cam_angle: float = 0.0
 
 func _setup_preview_camera_and_position(train_instance: Node):
 	if not is_instance_valid(train_instance) or not train_instance.is_inside_tree():
@@ -89,11 +96,26 @@ func _setup_preview_camera_and_position(train_instance: Node):
 			menu_camera.process_mode = Node.PROCESS_MODE_ALWAYS
 			add_child(menu_camera)
 			
-		var nose_pos = train_instance.car1.global_transform.origin
-		var forward_dir = -train_instance.car1.global_transform.basis.z.normalized()
-		menu_camera.global_position = nose_pos + forward_dir * 13.0 + Vector3(4.5, 1.5, 0.0)
-		menu_camera.look_at(nose_pos + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+		menu_cam_angle = 0.0
+		_update_menu_camera_position()
 		menu_camera.make_current()
+
+func rotate_preview_camera(angle_delta: float):
+	menu_cam_angle += angle_delta
+	_update_menu_camera_position()
+
+func _update_menu_camera_position():
+	if not is_instance_valid(menu_camera) or not is_instance_valid(preview_train_instance):
+		return
+	var nose_pos = preview_train_instance.car1.global_transform.origin
+	var forward_dir = -preview_train_instance.car1.global_transform.basis.z.normalized()
+	var right_dir = preview_train_instance.car1.global_transform.basis.x.normalized()
+	
+	var offset = forward_dir * 13.0 + right_dir * 4.5
+	var rotated_offset = offset.rotated(Vector3.UP, menu_cam_angle)
+	
+	menu_camera.global_position = nose_pos + rotated_offset + Vector3(0, 1.5, 0)
+	menu_camera.look_at(nose_pos + Vector3(0.0, 1.0, 0.0), Vector3.UP)
 
 func start_game():
 	if is_instance_valid(preview_train_instance):
@@ -216,3 +238,8 @@ func _on_station_area_entered(_area):
 func process_station_stop(station_name: String):
 	# Station stop rewards are handled dynamically by PassengerManager
 	pass
+
+func _on_livery_changed(train_path: String, new_livery: String):
+	if is_instance_valid(preview_train_instance) and preview_train_instance.scene_file_path == train_path:
+		if preview_train_instance.has_method("apply_livery"):
+			preview_train_instance.apply_livery(new_livery)
