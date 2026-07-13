@@ -3,8 +3,8 @@ const navbar = document.querySelector('.navbar');
 
 window.addEventListener('scroll', () => {
     if (window.scrollY > 50) {
-        navbar.style.background = 'rgba(10, 15, 20, 0.8)';
-        navbar.style.boxShadow = '0 4px 30px rgba(0, 0, 0, 0.5)';
+        navbar.style.background = 'rgba(255, 255, 255, 0.9)';
+        navbar.style.boxShadow = '0 4px 30px rgba(44, 62, 44, 0.15)';
         navbar.style.backdropFilter = 'blur(20px)';
     } else {
         navbar.style.background = 'transparent';
@@ -43,4 +43,22 @@ document.addEventListener('mousemove', (e) => {
         orb1.style.transform = `translate(${mouseX * -30}px, ${mouseY * -30}px)`;
         orb2.style.transform = `translate(${mouseX * 40}px, ${mouseY * 40}px)`;
     }
+});
+
+// Back to Top Button
+const backToTopBtn = document.getElementById('backToTop');
+
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 300) {
+        backToTopBtn.classList.add('show');
+    } else {
+        backToTopBtn.classList.remove('show');
+    }
+});
+
+backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
 });
