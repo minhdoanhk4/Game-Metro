@@ -1,12 +1,12 @@
 :root {
-    --bg-color: #050505;
-    --text-primary: #f8f9fa;
-    --text-secondary: #a0aab2;
-    --accent-glow: #00f0ff;
-    --accent-secondary: #ff003c;
+    --bg-color: #0c100a;
+    --text-primary: #fdfbf7;
+    --text-secondary: #c9cebd;
+    --accent-glow: #e8b923;
+    --accent-secondary: #d33c5e;
     
-    --glass-bg: rgba(20, 25, 35, 0.4);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(20, 30, 20, 0.6);
+    --glass-border: rgba(232, 185, 35, 0.25);
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
     
     --font-sans: 'Inter', system-ui, sans-serif;
@@ -35,7 +35,7 @@ body, html {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-image: url('assets/bg.png');
+    background-image: url('assets/bg_vietnam.png');
     background-size: cover;
     background-position: center;
     z-index: -3;
@@ -110,7 +110,7 @@ h1, h2, h3, h4 {
 }
 
 .gradient-text {
-    background: linear-gradient(to right, var(--accent-glow), #a200ff);
+    background: linear-gradient(to right, var(--accent-glow), #d33c5e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: inline-block;
@@ -201,14 +201,14 @@ h1, h2, h3, h4 {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--accent-glow), #0077ff);
+    background: linear-gradient(135deg, var(--accent-glow), #d33c5e);
     color: #000;
-    box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+    box-shadow: 0 4px 15px rgba(232, 185, 35, 0.3);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 240, 255, 0.5);
+    box-shadow: 0 8px 25px rgba(232, 185, 35, 0.5);
     color: #000;
 }
 
@@ -221,7 +221,7 @@ h1, h2, h3, h4 {
 .btn-outline:hover {
     border-color: var(--accent-glow);
     color: var(--accent-glow);
-    background: rgba(0, 240, 255, 0.05);
+    background: rgba(232, 185, 35, 0.05);
 }
 
 .btn-secondary {
@@ -239,9 +239,9 @@ h1, h2, h3, h4 {
 }
 
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.4); }
-    70% { box-shadow: 0 0 0 15px rgba(0, 240, 255, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(232, 185, 35, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(232, 185, 35, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(232, 185, 35, 0); }
 }
 
 /* Hero Section */
@@ -264,12 +264,12 @@ h1, h2, h3, h4 {
     display: inline-block;
     padding: 6px 16px;
     border-radius: 50px;
-    background: rgba(0, 240, 255, 0.1);
+    background: rgba(232, 185, 35, 0.1);
     color: var(--accent-glow);
     font-size: 0.85rem;
     font-weight: 600;
     margin-bottom: 1.5rem;
-    border: 1px solid rgba(0, 240, 255, 0.2);
+    border: 1px solid rgba(232, 185, 35, 0.2);
 }
 
 .title {
@@ -403,8 +403,8 @@ h1, h2, h3, h4 {
     border-bottom-width: 0px;
     margin-top: 4px;
     margin-bottom: -4px;
-    box-shadow: 0 2px 10px rgba(0,240,255,0.4), inset 0 0 10px rgba(0,240,255,0.2);
-    border-color: rgba(0,240,255,0.5);
+    box-shadow: 0 2px 10px rgba(232,185,35,0.4), inset 0 0 10px rgba(232,185,35,0.2);
+    border-color: rgba(232,185,35,0.5);
     color: var(--accent-glow);
 }
 
@@ -479,3 +479,4 @@ h1, h2, h3, h4 {
     .download-links { flex-direction: column; }
     .controls-content { padding: 2rem 1rem; }
 }
+
