@@ -1,13 +1,13 @@
-﻿:root {
-    --bg-color: #F8F5F0;
-    --text-primary: #2C3E2C;
-    --text-secondary: #5A6D5A;
-    --accent-glow: #C93343;
-    --accent-secondary: #EBAA3B;
+:root {
+    --bg-color: #F8F9F8; /* Light greenish white */
+    --text-primary: #1B2E24; /* Dark slate green */
+    --text-secondary: #4A6353; /* Medium slate green */
+    --accent-glow: #00A651; /* Vibrant Metro Green */
+    --accent-secondary: #E31837; /* Metro Red Stripe */
     
     --glass-bg: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(201, 51, 67, 0.2);
-    --glass-shadow: 0 8px 32px 0 rgba(44, 62, 44, 0.1);
+    --glass-border: rgba(0, 166, 81, 0.2);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 166, 81, 0.1);
     
     --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
     --font-heading: 'Be Vietnam Pro', sans-serif;
@@ -42,6 +42,21 @@ body, html {
     z-index: -3;
 }
 
+.dong-son-pattern {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('assets/dong_son_pattern.png');
+    background-size: 500px;
+    background-repeat: repeat;
+    opacity: 0.08;
+    z-index: -2;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+}
+
 .bg-overlay {
     position: fixed;
     top: 0;
@@ -74,7 +89,7 @@ body, html {
 .orb-2 {
     width: 600px;
     height: 600px;
-    background: var(--accent-secondary);
+    background: #007D3D;
     bottom: -200px;
     left: -200px;
     animation-duration: 25s;
@@ -111,7 +126,7 @@ h1, h2, h3, h4 {
 }
 
 .gradient-text {
-    background: linear-gradient(to right, var(--accent-glow), #d33c5e);
+    background: linear-gradient(to right, var(--accent-glow), #007D3D);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: inline-block;
@@ -202,15 +217,15 @@ h1, h2, h3, h4 {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--accent-glow), #d33c5e);
-    color: #000;
-    box-shadow: 0 4px 15px rgba(232, 185, 35, 0.3);
+    background: linear-gradient(135deg, var(--accent-glow), #007D3D);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(0, 166, 81, 0.3);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(232, 185, 35, 0.5);
-    color: #000;
+    box-shadow: 0 8px 25px rgba(0, 166, 81, 0.5);
+    color: #fff;
 }
 
 .btn-outline {
@@ -222,7 +237,7 @@ h1, h2, h3, h4 {
 .btn-outline:hover {
     border-color: var(--accent-glow);
     color: var(--accent-glow);
-    background: rgba(232, 185, 35, 0.05);
+    background: rgba(0, 166, 81, 0.05);
 }
 
 .btn-secondary {
@@ -240,9 +255,9 @@ h1, h2, h3, h4 {
 }
 
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(232, 185, 35, 0.4); }
-    70% { box-shadow: 0 0 0 15px rgba(232, 185, 35, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(232, 185, 35, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(0, 166, 81, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(0, 166, 81, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 166, 81, 0); }
 }
 
 /* Hero Section */
@@ -265,12 +280,12 @@ h1, h2, h3, h4 {
     display: inline-block;
     padding: 6px 16px;
     border-radius: 50px;
-    background: rgba(232, 185, 35, 0.1);
+    background: rgba(0, 166, 81, 0.1);
     color: var(--accent-glow);
     font-size: 0.85rem;
     font-weight: 600;
     margin-bottom: 1.5rem;
-    border: 1px solid rgba(232, 185, 35, 0.2);
+    border: 1px solid rgba(0, 166, 81, 0.2);
 }
 
 .title {
@@ -333,7 +348,7 @@ h1, h2, h3, h4 {
 .icon-box {
     font-size: 2.2rem;
     margin-bottom: 1.5rem;
-    background: linear-gradient(135deg, var(--accent-glow), var(--accent-secondary));
+    background: linear-gradient(135deg, var(--accent-glow), #007D3D);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: inline-block;
@@ -404,8 +419,8 @@ h1, h2, h3, h4 {
     border-bottom-width: 0px;
     margin-top: 4px;
     margin-bottom: -4px;
-    box-shadow: 0 2px 10px rgba(201, 51, 67, 0.3), inset 0 0 10px rgba(201, 51, 67, 0.1);
-    border-color: rgba(201, 51, 67, 0.4);
+    box-shadow: 0 2px 10px rgba(0, 166, 81, 0.3), inset 0 0 10px rgba(0, 166, 81, 0.1);
+    border-color: rgba(0, 166, 81, 0.4);
     color: var(--accent-glow);
 }
 
@@ -492,10 +507,10 @@ h1, h2, h3, h4 {
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-glow), var(--accent-secondary));
+    background: linear-gradient(135deg, var(--accent-glow), #007D3D);
     color: white;
     border: none;
-    box-shadow: 0 4px 15px rgba(201, 51, 67, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 166, 81, 0.4);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -515,7 +530,7 @@ h1, h2, h3, h4 {
 
 .back-to-top:hover {
     transform: translateY(-5px);
-    box-shadow: 0 6px 20px rgba(201, 51, 67, 0.6);
+    box-shadow: 0 6px 20px rgba(0, 166, 81, 0.6);
 }
 
 /* Enhanced Hero Layout */
@@ -570,7 +585,7 @@ h1, h2, h3, h4 {
     width: 350px;
     height: 350px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-glow), var(--accent-secondary));
+    background: linear-gradient(135deg, var(--accent-glow), #007D3D);
     opacity: 0.15;
     filter: blur(50px);
     z-index: 1;
