@@ -34,12 +34,12 @@ Chỉ với 3 phím cơ bản, bạn đã sẵn sàng cho chuyến hành trình:
 Bạn đã sẵn sàng để bắt đầu ca làm việc của mình chưa? Đừng bỏ lỡ cơ hội tự tay điều khiển những đoàn tàu hiện đại nhất! 
 
 👇 **Tải game miễn phí tại đây:** 👇
-> *[Hãy chèn Link tải game của bạn vào đây (VD: Google Drive, Itch.io, MediaFire...)]*
+> 👉 [**Tải Game Metro Train Simulator (Bản mới nhất)**](https://github.com/minhdoanhk4/Game-Metro/releases/latest) 👈
 
 ---
 ### 🛠️ Dành cho Developer muốn trải nghiệm Source Code:
 Game được phát triển hoàn toàn bằng **Godot Engine 4**. Nếu bạn muốn xem cách game hoạt động:
-1. Clone repo này về máy: `git clone <link-repo-cua-ban>`
+1. Clone repo này về máy: `git clone https://github.com/minhdoanhk4/Game-Metro.git`
 2. Mở thư mục game bằng **Godot Engine 4** (Hỗ trợ Forward Plus).
 3. Bấm nút **Play (F5)** để chạy game.
 
