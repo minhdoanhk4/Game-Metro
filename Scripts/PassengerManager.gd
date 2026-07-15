@@ -77,31 +77,43 @@ func _on_doors_opened(train: Node):
 	var platform_y = _get_platform_top_y(station)
 		
 	# 1. Trigger boarding
-	var waiting_passengers = []
-	for p in platform_passengers:
-		if is_instance_valid(p) and p.current_station == station and p.state == p.State.WANDERING:
-			waiting_passengers.append(p)
+	if train.get("is_player_controlled") == true:
+		var waiting_passengers = []
+		for p in platform_passengers:
+			if is_instance_valid(p) and p.current_station == station and p.state == p.State.WANDERING:
+				var nearest_d = doors[0]
+				var m_dist = p.global_position.distance_to(nearest_d.position)
+				for d in doors:
+					var d_dist = p.global_position.distance_to(d.position)
+					if d_dist < m_dist:
+						m_dist = d_dist
+						nearest_d = d
+				var local_p = station.to_local(p.global_position)
+				var local_d = station.to_local(nearest_d.position)
+				# Only board if the door is on the same side/platform (lateral distance < 8m)
+				if abs(local_p.x - local_d.x) < 8.0:
+					waiting_passengers.append(p)
+				
+		waiting_passengers.shuffle()
+		var board_count = mini(randi_range(5, 100), waiting_passengers.size())
+		
+		for i in range(board_count):
+			var p = waiting_passengers[i]
+			# Find nearest door
+			var nearest_door = doors[0]
+			var min_dist = p.global_position.distance_to(nearest_door.position)
+			for d in doors:
+				var dist = p.global_position.distance_to(d.position)
+				if dist < min_dist:
+					min_dist = dist
+					nearest_door = d
 			
-	waiting_passengers.shuffle()
-	var board_count = mini(randi_range(5, 100), waiting_passengers.size())
-	
-	for i in range(board_count):
-		var p = waiting_passengers[i]
-		# Find nearest door
-		var nearest_door = doors[0]
-		var min_dist = p.global_position.distance_to(nearest_door.position)
-		for d in doors:
-			var dist = p.global_position.distance_to(d.position)
-			if dist < min_dist:
-				min_dist = dist
-				nearest_door = d
-		
-		var door_pos = nearest_door.position
-		door_pos.y = platform_y
-		
-		# target interior X is the center of the car
-		var interior_x = nearest_door.car.global_transform.origin.x
-		p.assign_door(door_pos, interior_x, nearest_door.car)
+			var door_pos = nearest_door.position
+			door_pos.y = platform_y
+			
+			# target interior X is the center of the car
+			var interior_x = nearest_door.car.global_transform.origin.x
+			p.assign_door(door_pos, interior_x, nearest_door.car)
 		
 	# 2. Trigger alighting
 	var alight_count = randi_range(5, 100)

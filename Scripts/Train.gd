@@ -20,6 +20,7 @@ var global_door_progress_right: float = 0.0
 var approach_speed_limit: float = INF # set by Station to cap speed in zone
 
 var current_station: Node = null
+var serviced_station: Node = null
 
 var cached_stations: Array = []
 var cached_trains: Array = []
@@ -305,7 +306,7 @@ func get_nearest_station() -> Node:
 			if dist < min_dist:
 				min_dist = dist
 				nearest_station = s
-	if min_dist < 100.0:
+	if min_dist < 600.0:
 		return nearest_station
 	return null
 
@@ -444,7 +445,7 @@ func _process(delta):
 	var is_underground = car1.global_transform.origin.z < 2200.0
 	
 	# Automatically switch camera to cabin if we enter underground with an disallowed camera
-	if is_underground:
+	if is_underground and is_player_controlled:
 		var cur_cam_name = cameras[current_camera_index].name
 		if cur_cam_name in ["Cam_ThirdPerson", "Cam_Isometric"]:
 			# Force switch to Cabin
@@ -515,26 +516,51 @@ func _animate_doors(delta):
 	
 func _handle_input(delta):
 	if not is_player_controlled and doors_open:
-		var pt = null
-		for t in _get_trains():
-			if t.is_player_controlled:
-				pt = t
-				break
-		if pt and not pt.doors_open and pt.current_speed > 0.5:
-			var time_scale = 12.0
-			if GameManager and "time_scale" in GameManager:
-				time_scale = GameManager.time_scale
-			var in_game_minutes_per_sec = (time_scale / 60.0)
-			ai_timer_in_game_minutes += delta * in_game_minutes_per_sec
-			if ai_timer_in_game_minutes >= 8.0:
-				close_doors()
+		var time_scale = 12.0
+		if GameManager and "time_scale" in GameManager:
+			time_scale = GameManager.time_scale
+		var in_game_minutes_per_sec = (time_scale / 60.0)
+		ai_timer_in_game_minutes += delta * in_game_minutes_per_sec
+		if ai_timer_in_game_minutes >= 1.5:
+			close_doors()
+			serviced_station = current_station
+			if serviced_station == null:
+				serviced_station = get_nearest_station()
+			ai_timer_in_game_minutes = 0.0
 
 	if doors_open:
 		current_throttle = move_toward(current_throttle, 0.0, delta * 2.0)
 		return
 		
 	if not is_player_controlled:
-		current_throttle = move_toward(current_throttle, 1.0, delta * 0.5)
+		var should_brake = false
+		var nearest = current_station
+		if nearest == null:
+			nearest = get_nearest_station()
+			
+		if nearest != null and nearest != serviced_station:
+			var station_local = path_node.to_local(nearest.global_transform.origin)
+			var station_offset = path_node.curve.get_closest_offset(station_local)
+			var target_offset = station_offset + 45.0 if direction_forward else station_offset - 45.0
+			var remaining_dist = target_offset - train_progress if direction_forward else train_progress - target_offset
+			
+			var braking_dist = max((max_speed * max_speed) / (7.2 * braking_force) * 1.8, 80.0)
+			if remaining_dist > 0 and remaining_dist < braking_dist + 50.0:
+				if remaining_dist < braking_dist:
+					should_brake = true
+					if remaining_dist < 2.0 and current_speed < 1.0:
+						current_throttle = 0.0
+						if current_speed < 0.1 and not doors_open:
+							open_doors()
+							ai_timer_in_game_minutes = 0.0
+					else:
+						current_throttle = move_toward(current_throttle, 0.0, delta * 1.5)
+		else:
+			if nearest == null:
+				serviced_station = null
+		
+		if not should_brake:
+			current_throttle = move_toward(current_throttle, 1.0, delta * 0.5)
 		return
 		
 	# Keyboard input modifies the persistent throttle
