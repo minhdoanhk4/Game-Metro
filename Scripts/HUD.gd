@@ -30,13 +30,18 @@ var route_dots = []
 var station_names = ["Bến Thành", "Nhà hát TP", "Ba Son", "Văn Thánh", "Tân Cảng", "Thảo Điền", "An Phú", "Rạch Chiếc", "Phước Long", "Bình Thái", "Thủ Đức", "Khu CNC", "ĐH QG", "Suối Tiên"]
 
 @onready var shop_button = $ShopButton
+@onready var pause_button = $PauseButton
+@onready var in_game_exit_btn = $ExitButton
+@onready var pause_menu_panel = $PauseMenuPanel
+@onready var resume_menu_btn = $PauseMenuPanel/CenterContainer/VBoxContainer/ResumeMenuBtn
+@onready var home_menu_btn = $PauseMenuPanel/CenterContainer/VBoxContainer/HomeMenuBtn
+@onready var restart_menu_btn = $PauseMenuPanel/CenterContainer/VBoxContainer/RestartMenuBtn
+@onready var exit_menu_btn = $PauseMenuPanel/CenterContainer/VBoxContainer/ExitMenuBtn
 @onready var door_btn = $Dashboard/Margin/HBox/RightSection/DoorBtn
 @onready var cam_btn = $Dashboard/Margin/HBox/RightSection/CamBtn
 @onready var brake_btn = $Dashboard/Margin/HBox/RightSection/BrakeBtn
 @onready var light_btn = $Dashboard/Margin/HBox/RightSection/LightBtn
 @onready var horn_btn = $Dashboard/Margin/HBox/RightSection/HornBtn
-@onready var auto_btn = $Dashboard/Margin/HBox/RightSection/AutoStopBtn
-@onready var pass_btn = $Dashboard/Margin/HBox/RightSection/PassBtn
 
 # @onready var pip_subviewport = $PiP_Container/SubViewportContainer/SubViewport
 # @onready var pip_camera = $PiP_Container/SubViewportContainer/SubViewport/PiPCamera
@@ -127,6 +132,17 @@ func _ready():
 	if shop_button:
 		shop_button.pressed.connect(_on_depot_shop_pressed)
 		
+	if has_node("PauseButton"):
+		pause_button.pressed.connect(_on_pause_pressed)
+	if has_node("ExitButton"):
+		in_game_exit_btn.pressed.connect(_on_in_game_exit_pressed)
+		
+	if has_node("PauseMenuPanel"):
+		resume_menu_btn.pressed.connect(_on_resume_menu_pressed)
+		home_menu_btn.pressed.connect(_on_home_menu_pressed)
+		restart_menu_btn.pressed.connect(_on_restart_menu_pressed)
+		exit_menu_btn.pressed.connect(_on_exit_menu_pressed)
+		
 	# Livery logic removed to use Shop.tscn
 	if restart_btn: restart_btn.pressed.connect(_on_restart_pressed)
 	if quit_btn2: quit_btn2.pressed.connect(_on_quit_pressed)
@@ -137,6 +153,8 @@ func _ready():
 		if has_node("ThrottlePanel"): $ThrottlePanel.show()
 		if has_node("RouteBarPanel"): $RouteBarPanel.show()
 		if has_node("ShopButton"): $ShopButton.show()
+		if has_node("PauseButton"): $PauseButton.show()
+		if has_node("ExitButton"): $ExitButton.show()
 		# Use call_deferred to emit main_menu_play because it connects to Main which might not be ready yet
 		call_deferred("emit_signal", "main_menu_play")
 	else:
@@ -148,11 +166,6 @@ func _ready():
 	# if toggle_cam_btn:
 	# 	toggle_cam_btn.pressed.connect(_on_toggle_pip_cam)
 
-	if auto_btn:
-		auto_btn.pressed.connect(_on_auto_btn_pressed)
-
-	if pass_btn:
-		pass_btn.pressed.connect(_on_pass_btn_pressed)
 
 	if door_btn:
 		door_btn.pressed.connect(_on_door_btn_pressed)
@@ -206,6 +219,7 @@ func _ready():
 	map_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	map_btn.custom_minimum_size = Vector2(48, 48)
 	map_btn.position = Vector2(20, 60) # Top-left, below money
+	apply_custom_btn_style(map_btn, Color(0.2, 0.3, 0.4))
 	add_child(map_btn)
 	map_btn.pressed.connect(_on_map_btn_pressed)
 	
@@ -246,24 +260,28 @@ func _ready():
 	btn_xray.text = "Xem Xuyên Thấu"
 	btn_xray.custom_minimum_size = Vector2(250, 45)
 	btn_xray.pressed.connect(func(): _set_map_view_mode("xray"))
+	apply_custom_btn_style(btn_xray, Color(0.2, 0.4, 0.6))
 	map_ui_vbox.add_child(btn_xray)
 	
 	var btn_real = Button.new()
 	btn_real.text = "Xem Thực Tế"
 	btn_real.custom_minimum_size = Vector2(250, 45)
 	btn_real.pressed.connect(func(): _set_map_view_mode("realistic"))
+	apply_custom_btn_style(btn_real, Color(0.2, 0.4, 0.6))
 	map_ui_vbox.add_child(btn_real)
 	
 	var btn_sys = Button.new()
 	btn_sys.text = "Xem Hệ Thống Tàu"
 	btn_sys.custom_minimum_size = Vector2(250, 45)
 	btn_sys.pressed.connect(func(): _set_map_view_mode("system"))
+	apply_custom_btn_style(btn_sys, Color(0.2, 0.4, 0.6))
 	map_ui_vbox.add_child(btn_sys)
 	
 	var btn_close_map = Button.new()
 	btn_close_map.text = "Đóng Bản Đồ"
 	btn_close_map.custom_minimum_size = Vector2(250, 45)
 	btn_close_map.pressed.connect(_close_map)
+	apply_custom_btn_style(btn_close_map, Color(0.6, 0.2, 0.2))
 	map_ui_vbox.add_child(btn_close_map)
 	
 	var rotator_panel = Panel.new()
@@ -391,19 +409,6 @@ func _process(_delta):
 			else:
 				update_btn_color(door_btn, Color(0.1, 0.7, 0.1))
 				
-		if auto_btn and train_ref:
-			if train_ref.auto_stop_enabled:
-				update_btn_color(auto_btn, Color(0.1, 0.8, 0.1))
-			else:
-				update_btn_color(auto_btn, Color(0.4, 0.4, 0.45))
-
-		if pass_btn:
-			if GameManager.pass_by_pass:
-				update_btn_color(pass_btn, Color(0.6, 0.2, 0.8))
-				pass_btn.text = "Pass By\nPass\n[ON]"
-			else:
-				update_btn_color(pass_btn, Color(0.4, 0.4, 0.45))
-				pass_btn.text = "Pass By\nPass"
 
 		if light_btn and train_ref:
 			var headlight = train_ref.get_node_or_null("Car1/Headlight")
@@ -480,15 +485,15 @@ func _update_station_warnings(speed: float):
 		var approaching = dist_km < s["last_dist"]  # distance is getting smaller
 
 		# ── Reset for next lap ──────────────────────────────────────
-		# After stop is done AND train has driven away (distance increasing and > 200 meters), reset everything
-		if s["stop_done"] and not approaching and dist_km > 0.2:
+		# After stop is done AND train has driven away (distance increasing and > 150 meters), reset everything
+		if s["stop_done"] and not approaching and dist_km > 0.15:
 			s["yellow_warned"] = false
 			s["red_warned"] = false
 			s["stop_done"] = false
 			station.reset_for_next_lap()
 
 		# ── Sync stop state from station script ─────────────────────
-		if (station.stop_completed or GameManager.pass_by_pass) and not s["stop_done"]:
+		if station.stop_completed and not s["stop_done"]:
 			s["stop_done"] = true
 
 		s["last_dist"] = dist_km
@@ -679,15 +684,6 @@ func set_train(train_node):
 	# Link slider value to current_throttle (slider max is 1.0)
 	if train_ref and throttle_slider:
 		throttle_slider.value = train_ref.current_throttle * 100.0
-	if train_ref and auto_btn:
-		pass
-		
-func _on_auto_btn_pressed():
-	if train_ref and "auto_stop_enabled" in train_ref:
-		train_ref.auto_stop_enabled = !train_ref.auto_stop_enabled
-
-func _on_pass_btn_pressed():
-	GameManager.pass_by_pass = !GameManager.pass_by_pass
 
 func _on_brake_btn_pressed():
 	if train_ref:
@@ -710,47 +706,84 @@ func _init_custom_btn_styles():
 	if cam_btn: apply_custom_btn_style(cam_btn, Color(0.4, 0.4, 0.45))
 	if light_btn: apply_custom_btn_style(light_btn, Color(0.4, 0.4, 0.45))
 	if horn_btn: apply_custom_btn_style(horn_btn, Color(0.8, 0.5, 0.1))
-	if auto_btn: apply_custom_btn_style(auto_btn, Color(0.4, 0.4, 0.45))
-	if pass_btn: apply_custom_btn_style(pass_btn, Color(0.4, 0.4, 0.45))
 	if brake_btn: apply_custom_btn_style(brake_btn, Color(0.8, 0.2, 0.2))
+	_init_nav_btn_styles()
+
+func _init_nav_btn_styles():
+	var nav_color = Color(0.2, 0.3, 0.4)
+	if shop_button: apply_custom_btn_style(shop_button, nav_color)
+	if pause_button: apply_custom_btn_style(pause_button, nav_color)
+	if in_game_exit_btn: apply_custom_btn_style(in_game_exit_btn, Color(0.6, 0.2, 0.2))
+	if resume_menu_btn: apply_custom_btn_style(resume_menu_btn, Color(0.2, 0.6, 0.2))
+	if home_menu_btn: apply_custom_btn_style(home_menu_btn, nav_color)
+	if restart_menu_btn: apply_custom_btn_style(restart_menu_btn, nav_color)
+	if exit_menu_btn: apply_custom_btn_style(exit_menu_btn, Color(0.6, 0.2, 0.2))
+	if restart_btn: apply_custom_btn_style(restart_btn, Color(0.2, 0.6, 0.2))
+	if quit_btn2: apply_custom_btn_style(quit_btn2, Color(0.6, 0.2, 0.2))
 
 func apply_custom_btn_style(btn: Button, base_color: Color):
+	btn.expand_icon = true # Icon tự co giãn theo nút (padding được xử lý bởi viewBox SVG)
+	btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	
 	var normal = StyleBoxFlat.new()
-	normal.bg_color = base_color
+	normal.bg_color = base_color.darkened(0.5)
+	normal.bg_color.a = 1.0 # Bỏ trong suốt để rõ ràng
 	normal.corner_radius_top_left = 8
 	normal.corner_radius_top_right = 8
 	normal.corner_radius_bottom_right = 8
 	normal.corner_radius_bottom_left = 8
-	normal.shadow_color = Color(0, 0, 0, 0.3)
-	normal.shadow_size = 4
-	normal.shadow_offset = Vector2(0, 4)
-	normal.border_width_bottom = 4
-	normal.border_color = base_color.darkened(0.3)
+	normal.shadow_size = 0
+	normal.border_width_left = 2
+	normal.border_width_right = 2
+	normal.border_width_top = 2
+	normal.border_width_bottom = 2
+	normal.border_color = base_color.darkened(0.2)
 
 	var hover = normal.duplicate()
-	hover.bg_color = base_color.lightened(0.2)
+	hover.bg_color = base_color.darkened(0.3)
+	hover.border_color = base_color.lightened(0.2)
+	hover.shadow_size = 0
 
 	var pressed = normal.duplicate()
-	pressed.bg_color = base_color.darkened(0.2)
-	pressed.shadow_size = 2
-	pressed.shadow_offset = Vector2(0, 1)
-	pressed.border_width_top = 4
-	pressed.border_width_bottom = 0
+	pressed.bg_color = base_color.darkened(0.1)
+	pressed.border_color = base_color.lightened(0.5)
+	pressed.shadow_size = 0
 
 	btn.add_theme_stylebox_override("normal", normal)
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed)
-	var luminance = 0.299 * base_color.r + 0.587 * base_color.g + 0.114 * base_color.b
-	btn.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1) if luminance > 0.5 else Color.WHITE)
+	
+	btn.add_theme_color_override("icon_normal_color", base_color.lightened(0.5))
+	btn.add_theme_color_override("icon_hover_color", Color.WHITE)
+	btn.add_theme_color_override("icon_pressed_color", Color.WHITE)
+	
+	var text_color = base_color.lightened(0.8)
+	btn.add_theme_color_override("font_color", text_color)
+	btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	btn.add_theme_color_override("font_pressed_color", Color.WHITE)
 
 func update_btn_color(btn: Button, color: Color):
 	if btn.has_theme_stylebox_override("normal"):
-		btn.get_theme_stylebox("normal").bg_color = color
-		btn.get_theme_stylebox("normal").border_color = color.darkened(0.3)
-		btn.get_theme_stylebox("hover").bg_color = color.lightened(0.2)
-		btn.get_theme_stylebox("pressed").bg_color = color.darkened(0.2)
-		var luminance = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b
-		btn.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1) if luminance > 0.5 else Color.WHITE)
+		var normal = btn.get_theme_stylebox("normal") as StyleBoxFlat
+		normal.bg_color = color.darkened(0.3)
+		normal.bg_color.a = 1.0
+		normal.border_color = color
+		normal.shadow_size = 0
+		
+		var hover = btn.get_theme_stylebox("hover") as StyleBoxFlat
+		hover.bg_color = color.darkened(0.1)
+		hover.bg_color.a = 1.0
+		hover.border_color = color.lightened(0.2)
+		hover.shadow_size = 0
+		
+		var pressed = btn.get_theme_stylebox("pressed") as StyleBoxFlat
+		pressed.bg_color = color
+		pressed.bg_color.a = 1.0
+		pressed.border_color = color.lightened(0.5)
+		pressed.shadow_size = 0
+
+		btn.add_theme_color_override("icon_normal_color", Color.WHITE)
+		btn.add_theme_color_override("font_color", Color.WHITE)
 
 
 func _input(event):
@@ -1048,6 +1081,8 @@ func _create_depot_menu():
 	if has_node("ThrottlePanel"): $ThrottlePanel.hide()
 	if has_node("RouteBarPanel"): $RouteBarPanel.hide()
 	if has_node("ShopButton"): $ShopButton.hide()
+	if has_node("PauseButton"): $PauseButton.hide()
+	if has_node("ExitButton"): $ExitButton.hide()
 		
 	depot_menu_container = Control.new()
 	depot_menu_container.name = "DepotMenu"
@@ -1120,16 +1155,21 @@ func _create_depot_menu():
 	hbox.add_child(btn_right)
 	apply_custom_btn_style(btn_right, Color(0.1, 0.5, 0.8))
 	
+	var btn_hbox = HBoxContainer.new()
+	btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_hbox.add_theme_constant_override("separation", 20)
+	vbox.add_child(btn_hbox)
+	
 	action_btn = Button.new()
-	action_btn.custom_minimum_size = Vector2(280, 45)
+	action_btn.custom_minimum_size = Vector2(180, 45)
 	action_btn.pressed.connect(_on_depot_action)
-	vbox.add_child(action_btn)
+	btn_hbox.add_child(action_btn)
 	
 	var depot_shop_btn = Button.new()
-	depot_shop_btn.text = "CỬA HÀNG LIVERY"
-	depot_shop_btn.custom_minimum_size = Vector2(280, 45)
+	depot_shop_btn.text = "MÀU SƠN (LIVERY)"
+	depot_shop_btn.custom_minimum_size = Vector2(180, 45)
 	depot_shop_btn.pressed.connect(_on_depot_shop_pressed)
-	vbox.add_child(depot_shop_btn)
+	btn_hbox.add_child(depot_shop_btn)
 	apply_custom_btn_style(depot_shop_btn, Color(0.8, 0.4, 0.15))
 	
 	var quit_btn_d = Button.new()
@@ -1152,7 +1192,7 @@ func _update_depot_menu_ui():
 	
 	var owned = GameManager.is_train_owned(current_preview_index)
 	if owned:
-		action_btn.text = "CHỌN TÀU (SELECT)"
+		action_btn.text = "CHỌN TÀU"
 		apply_custom_btn_style(action_btn, Color(0.1, 0.7, 0.1))
 		action_btn.disabled = false
 	else:
@@ -1193,6 +1233,8 @@ func _on_depot_action():
 		if has_node("ThrottlePanel"): $ThrottlePanel.show()
 		if has_node("RouteBarPanel"): $RouteBarPanel.show()
 		if has_node("ShopButton"): $ShopButton.show()
+		if has_node("PauseButton"): $PauseButton.show()
+		if has_node("ExitButton"): $ExitButton.show()
 		if has_node("TopBar"): $TopBar.show()
 			
 		get_tree().paused = false
@@ -1202,3 +1244,25 @@ func _on_depot_action():
 		if success:
 			_update_depot_menu_ui()
 			show_message("Đã mở khóa thành công " + GameManager.train_list[current_preview_index]["name"] + "!")
+
+func _on_pause_pressed():
+	get_tree().paused = true
+	pause_menu_panel.show()
+
+func _on_resume_menu_pressed():
+	get_tree().paused = false
+	pause_menu_panel.hide()
+
+func _on_home_menu_pressed():
+	get_tree().paused = false
+	GameManager.skip_menu = false
+	get_tree().reload_current_scene()
+
+func _on_restart_menu_pressed():
+	_on_restart_pressed()
+
+func _on_exit_menu_pressed():
+	get_tree().quit()
+
+func _on_in_game_exit_pressed():
+	get_tree().quit()

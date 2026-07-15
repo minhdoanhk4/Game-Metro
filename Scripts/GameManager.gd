@@ -4,7 +4,7 @@ extends Node
 var money: int = 100
 var score: int = 0
 var skip_menu: bool = false
-var pass_by_pass: bool = false
+
 
 var click_audio: AudioStreamPlayer
 
@@ -27,7 +27,54 @@ func _process(delta):
 		_last_emitted_minute = m
 		time_updated.emit(h, m)
 
+const SAVE_PATH = "user://savegame.save"
+
+func save_game():
+	var save_dict = {
+		"money": money,
+		"score": score,
+		"owned_trains": owned_trains,
+		"owned_liveries": owned_liveries,
+		"train_liveries": train_liveries,
+		"current_train_index": current_train_index
+	}
+	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(save_dict))
+		file.close()
+
+func load_game():
+	if FileAccess.file_exists(SAVE_PATH):
+		var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+		if file:
+			var json_string = file.get_as_text()
+			var json = JSON.new()
+			var error = json.parse(json_string)
+			if error == OK:
+				var data = json.get_data()
+				if data.has("money"): money = int(data["money"])
+				if data.has("score"): score = int(data["score"])
+				
+				if data.has("owned_trains"):
+					owned_trains.clear()
+					for t in data["owned_trains"]:
+						owned_trains.append(String(t))
+						
+				if data.has("owned_liveries"):
+					owned_liveries.clear()
+					for l in data["owned_liveries"]:
+						owned_liveries.append(String(l))
+						
+				if data.has("train_liveries"):
+					train_liveries = data["train_liveries"]
+					
+				if data.has("current_train_index"):
+					select_train(int(data["current_train_index"]))
+					
+			file.close()
+
 func _ready():
+	load_game()
 	_setup_click_audio()
 	get_tree().node_added.connect(_on_node_added)
 	_connect_buttons_recursive(get_tree().root)
@@ -104,6 +151,7 @@ func unlock_train(idx: int) -> bool:
 	if money >= t["price"] and not owned_trains.has(t["path"]):
 		money -= t["price"]
 		owned_trains.append(t["path"])
+		save_game()
 		money_changed.emit(money)
 		return true
 	return false
@@ -117,16 +165,19 @@ signal score_changed(new_score)
 
 func add_money(amount: int):
 	money += amount
+	save_game()
 	money_changed.emit(money)
 
 func add_score(amount: int):
 	score += amount
+	save_game()
 	score_changed.emit(score)
 
 func buy_train(train_path: String, cost: int) -> bool:
 	if money >= cost and not owned_trains.has(train_path):
 		money -= cost
 		owned_trains.append(train_path)
+		save_game()
 		money_changed.emit(money)
 		return true
 	return false
@@ -139,6 +190,7 @@ func buy_livery(livery_name: String, cost: int) -> bool:
 	if money >= cost and not owned_liveries.has(livery_name):
 		money -= cost
 		owned_liveries.append(livery_name)
+		save_game()
 		money_changed.emit(money)
 		return true
 	return false
@@ -147,6 +199,7 @@ func apply_livery(livery_name: String, train_path: String = ""):
 	if train_path == "":
 		train_path = get_current_train_path()
 	train_liveries[train_path] = livery_name
+	save_game()
 	livery_changed.emit(train_path, livery_name)
 
 func get_current_livery(train_path: String = "") -> String:
@@ -167,6 +220,7 @@ func select_train(index: int):
 			ai_train_path = train_list[1]["path"]
 		else:
 			ai_train_path = train_list[0]["path"]
+		save_game()
 
 func set_train_selection(player_is_train_1: bool):
 	select_train(0 if player_is_train_1 else 1)

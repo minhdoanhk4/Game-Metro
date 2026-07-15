@@ -18,7 +18,7 @@ var passenger_count: int = 0
 var global_door_progress_left: float = 0.0
 var global_door_progress_right: float = 0.0
 var approach_speed_limit: float = INF # set by Station to cap speed in zone
-var auto_stop_enabled: bool = true
+
 var current_station: Node = null
 
 var cached_stations: Array = []
@@ -63,6 +63,7 @@ var bridge_sound_cooldown: float = 0.0
 var prev_y: float = 0.0
 var prev_yaw: float = 0.0
 var is_preview: bool = false
+var ai_timer_in_game_minutes: float = 0.0
 
 
 
@@ -100,6 +101,10 @@ func apply_livery(livery_name: String):
 						
 					mat.set_shader_parameter("livery_texture", tex)
 					body.set_instance_shader_parameter("use_livery", true)
+
+func _on_livery_changed(t_path: String, new_livery: String):
+	if t_path == scene_file_path:
+		apply_livery(new_livery)
 
 func _ready():
 	# Configure train speed characteristics based on scene path/name
@@ -181,6 +186,8 @@ func _ready():
 	var my_livery = GameManager.get_current_livery(scene_file_path)
 	if my_livery != "":
 		apply_livery(my_livery)
+		
+	GameManager.livery_changed.connect(_on_livery_changed)
 	
 	# Reset local Z offsets of the cars so they attach directly to followers
 	if not is_preview:
@@ -467,10 +474,10 @@ func _animate_doors(delta):
 		if current_station:
 			var side = current_station.platform_side
 			var plat_node = current_station.get_node_or_null("Platform")
-			if plat_node and cars.size() > 0:
-				var car = cars[0]
-				var to_plat = plat_node.global_position - car.global_position
-				var dot_right = car.global_transform.basis.x.dot(to_plat)
+			if plat_node and follows.size() > 0:
+				var follow = follows[0]
+				var to_plat = plat_node.global_position - follow.global_position
+				var dot_right = follow.global_transform.basis.x.dot(to_plat)
 				side = 1 if dot_right > 0 else -1
 				
 			if side == -1: open_minus_x = true # -1 means Left (-X)
@@ -507,6 +514,21 @@ func _animate_doors(delta):
 
 	
 func _handle_input(delta):
+	if not is_player_controlled and doors_open:
+		var pt = null
+		for t in _get_trains():
+			if t.is_player_controlled:
+				pt = t
+				break
+		if pt and not pt.doors_open and pt.current_speed > 0.5:
+			var time_scale = 12.0
+			if GameManager and "time_scale" in GameManager:
+				time_scale = GameManager.time_scale
+			var in_game_minutes_per_sec = (time_scale / 60.0)
+			ai_timer_in_game_minutes += delta * in_game_minutes_per_sec
+			if ai_timer_in_game_minutes >= 8.0:
+				close_doors()
+
 	if doors_open:
 		current_throttle = move_toward(current_throttle, 0.0, delta * 2.0)
 		return
@@ -524,36 +546,6 @@ func _handle_input(delta):
 
 func _update_physics(delta):
 	var speed_before = current_speed
-	var is_auto_parking = false
-	# Auto-parking logic
-	if auto_stop_enabled and current_station and not current_station.stop_completed:
-		var station_local = path_node.to_local(current_station.global_transform.origin)
-		var station_offset = path_node.curve.get_closest_offset(station_local)
-		
-		# Dừng ngay sát mép nhà ga phía hướng đi tới. Platform kéo dài từ -50 đến +50.
-		# Đầu tàu (car1 ở train_progress) sẽ dừng tại +45 để nằm trọn trong ga.
-		var target_offset = station_offset + 45.0 if direction_forward else station_offset - 45.0
-		var remaining_dist = target_offset - train_progress if direction_forward else train_progress - target_offset
-		
-		# Calculate dynamic braking distance with safety margin based on max speed
-		var braking_dist = max((max_speed * max_speed) / (7.2 * braking_force) * 1.8, 100.0)
-		
-		if remaining_dist > 0 and remaining_dist < braking_dist:
-			is_auto_parking = true
-			current_throttle = 0.0
-			# Giảm tốc từ từ: Tốc độ giảm tuyến tính theo khoảng cách còn lại
-			var ideal_speed = max_speed * (remaining_dist / braking_dist)
-			ideal_speed = max(ideal_speed, 2.0) if remaining_dist > 2.0 else ideal_speed
-			
-			if current_speed > ideal_speed:
-				current_speed = move_toward(current_speed, ideal_speed, braking_force * delta)
-			
-			if remaining_dist < 0.2:
-				current_speed = 0.0
-				
-			if current_speed <= 10.0 and current_speed > 1.0 and not has_played_approach_sound:
-				has_played_approach_sound = true
-				if approach_audio and approach_audio.stream: approach_audio.play()
 
 	if current_throttle > 0.0 and abs(current_speed) < 2.0 and current_station != null and doors_open == false:
 		if not is_block_clear():
@@ -569,7 +561,7 @@ func _update_physics(delta):
 			current_speed = move_toward(current_speed, target_speed, acceleration * delta)
 		else:
 			current_speed = move_toward(current_speed, target_speed, friction * delta)
-	elif not is_auto_parking:
+	else:
 		# Throttle is 0, apply braking to stop
 		current_speed = move_toward(current_speed, 0.0, braking_force * delta)
 		
@@ -803,12 +795,18 @@ func get_open_door_global_positions() -> Array:
 	
 	var side = current_station.platform_side # -1: Left (-X), 1: Right (+X), 0: Both
 	var plat_node = current_station.get_node_or_null("Platform")
-	if plat_node and follows.size() > 0:
+	if not plat_node:
+		for child in current_station.get_children():
+			if child is CSGBox3D and not "Sign" in child.name:
+				plat_node = child
+				break
+				
+	if follows.size() > 0:
 		var follow = follows[0]
-		var to_plat = plat_node.global_position - follow.global_position
+		var target_pos = plat_node.global_position if plat_node else current_station.global_position
+		var to_plat = target_pos - follow.global_position
 		var dot_right = follow.global_transform.basis.x.dot(to_plat)
 		side = 1 if dot_right > 0 else -1
-		
 	var open_left = (side == -1 or side == 0)
 	var open_right = (side == 1 or side == 0)
 	

@@ -41,16 +41,19 @@ func _spawn_platform_passengers(station: Node, count: int):
 		p.name = "Passenger_" + str(randi())
 		p.set_script(passenger_scene)
 		
-		# Determine safe X spawn on the platform (away from track edge)
+		var plat_node = station.get_node_or_null("Platform")
+		if not plat_node:
+			for child in station.get_children():
+				if child is CSGBox3D and not "Sign" in child.name:
+					plat_node = child
+					break
+		
+		# Spawn safely within the local bounds of the platform box (or center of station)
 		var safe_x = 0.0
-		var spawn_side = side
-		if side == 0:
-			spawn_side = -1 if randf() > 0.5 else 1
-			
-		if spawn_side == -1:
-			safe_x = randf_range(2.5, 4.5)
+		if plat_node:
+			safe_x = plat_node.position.x + randf_range(-1.0, 1.0)
 		else:
-			safe_x = randf_range(-4.5, -2.5)
+			safe_x = randf_range(-1.0, 1.0)
 			
 		var local_pos = Vector3(safe_x, 0, randf_range(-70, 70))
 		
@@ -116,15 +119,16 @@ func _on_doors_opened(train: Node):
 		p.global_transform.origin = spawn_pos
 		p.current_station = station
 		
-		# Walk out onto the platform (away from track)
+		# Walk out onto the platform
 		var plat_node = station.get_node_or_null("Platform")
-		var safe_x = 3.5
-		if plat_node:
-			safe_x = plat_node.position.x
-		elif station.platform_side == 1:
-			safe_x = -3.5
+		if not plat_node:
+			for child in station.get_children():
+				if child is CSGBox3D and not "Sign" in child.name:
+					plat_node = child
+					break
 		
-		var target_global_x = station.to_global(Vector3(safe_x, 0, 0)).x
+		var safe_x = plat_node.position.x if plat_node else 0.0
+		var target_global_x = station.to_global(Vector3(safe_x, 0, 0)).x + randf_range(-0.5, 0.5)
 		p.alight_to(target_global_x)
 		platform_passengers.append(p)
 
@@ -132,11 +136,20 @@ func _on_doors_closed(train: Node):
 	# Cancel boarding for those who haven't made it
 	for p in platform_passengers:
 		if is_instance_valid(p) and p.state == p.State.GOING_TO_DOOR:
-			p.state = p.State.WANDERING
-			if randf() > 0.5:
-				p.velocity = Vector3(0, 0, p.walk_speed)
+			var station = p.current_station
+			if station:
+				var plat_node = station.get_node_or_null("Platform")
+				if not plat_node:
+					for child in station.get_children():
+						if child is CSGBox3D and not "Sign" in child.name:
+							plat_node = child
+							break
+				var safe_x = plat_node.position.x if plat_node else 0.0
+				var target_global_x = station.to_global(Vector3(safe_x, 0, 0)).x
+				p.alight_to(target_global_x)
 			else:
-				p.velocity = Vector3(0, 0, -p.walk_speed)
+				p.state = p.State.WANDERING
+				p.velocity = Vector3(0, 0, p.walk_speed if randf() > 0.5 else -p.walk_speed)
 
 func passenger_boarded(passenger: Node3D, destroy: bool = true):
 	platform_passengers.erase(passenger)

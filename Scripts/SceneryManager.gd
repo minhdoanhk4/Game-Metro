@@ -8,6 +8,38 @@ var main_scene: Node
 
 var tree_multimeshes: Dictionary = {}
 var tree_meshes: Dictionary = {}
+var wall_materials: Array = []
+
+
+# --- Shared Meshes for Optimization ---
+var shared_box = BoxMesh.new()
+var shared_cyl = CylinderMesh.new()
+
+func _init_shared_meshes():
+	shared_box.size = Vector3(1, 1, 1)
+	shared_cyl.top_radius = 0.5
+	shared_cyl.bottom_radius = 0.5
+	shared_cyl.height = 1.0
+
+
+func _create_window_texture(base_color: Color, window_color: Color, is_glass: bool) -> ImageTexture:
+	var img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(base_color)
+	
+	# Draw windows (grid)
+	var win_w = 12
+	var win_h = 16
+	var spacing_x = 20
+	var spacing_y = 24
+	
+	for y in range(4, 64, spacing_y):
+		for x in range(4, 64, spacing_x):
+			for dy in range(win_h):
+				for dx in range(win_w):
+					if x + dx < 64 and y + dy < 64:
+						img.set_pixel(x + dx, y + dy, window_color)
+						
+	return ImageTexture.create_from_image(img)
 
 func _init_tree_meshes():
 	tree_meshes["trunk"] = CylinderMesh.new()
@@ -178,6 +210,72 @@ func _ready():
 	mat_grass.albedo_color = Color(0.18, 0.42, 0.20) # Deep natural grass green
 	mat_grass.roughness = 0.95
 
+	# --- Vietnamese Materials ---
+	
+
+	# Create diverse wall materials
+	var colors = [
+		Color(0.9, 0.75, 0.3), # Yellow
+		Color(0.9, 0.9, 0.9),  # White
+		Color(0.7, 0.8, 0.7),  # Pale Green
+		Color(0.7, 0.8, 0.9),  # Pale Blue
+		Color(0.9, 0.8, 0.8),  # Pale Pink
+		Color(0.6, 0.6, 0.6)   # Grey
+	]
+	
+	for c in colors:
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = c
+		mat.roughness = 0.9
+		# Generate a corresponding window texture for this color
+		var tex = _create_window_texture(c, Color(0.3, 0.4, 0.3), false)
+		mat.albedo_texture = tex
+		mat.uv1_scale = Vector3(0.2, 0.2, 0.2)
+		mat.uv1_triplanar = true
+		mat.uv1_world_triplanar = true
+		wall_materials.append(mat)
+
+	var mat_yellow_wall = StandardMaterial3D.new()
+	mat_yellow_wall.albedo_color = Color(0.9, 0.75, 0.3)
+	mat_yellow_wall.roughness = 0.9
+	# Generate window textures
+	var tex_concrete = _create_window_texture(Color(0.65, 0.65, 0.68), Color(0.2, 0.2, 0.2), false)
+	var tex_blue_glass = _create_window_texture(Color(0.12, 0.32, 0.58), Color(0.8, 0.9, 1.0), true)
+	var tex_yellow = _create_window_texture(Color(0.9, 0.75, 0.3), Color(0.3, 0.5, 0.3), false)
+	
+	mat_concrete.albedo_texture = tex_concrete
+	mat_concrete.uv1_scale = Vector3(0.1, 0.1, 0.1)
+	mat_concrete.uv1_triplanar = true
+	mat_concrete.uv1_world_triplanar = true
+	
+	mat_blue_glass.albedo_texture = tex_blue_glass
+	mat_blue_glass.uv1_scale = Vector3(0.05, 0.05, 0.05)
+	mat_blue_glass.uv1_triplanar = true
+	mat_blue_glass.uv1_world_triplanar = true
+	
+	mat_yellow_wall.albedo_texture = tex_yellow
+	mat_yellow_wall.uv1_scale = Vector3(0.2, 0.2, 0.2)
+	mat_yellow_wall.uv1_triplanar = true
+	mat_yellow_wall.uv1_world_triplanar = true
+
+
+	var mat_wood_red = StandardMaterial3D.new()
+	mat_wood_red.albedo_color = Color(0.6, 0.1, 0.1)
+	mat_wood_red.roughness = 0.8
+
+	var mat_bamboo = StandardMaterial3D.new()
+	mat_bamboo.albedo_color = Color(0.4, 0.6, 0.2)
+	mat_bamboo.roughness = 0.7
+
+	var mat_roof_tile = StandardMaterial3D.new()
+	mat_roof_tile.albedo_color = Color(0.7, 0.3, 0.2)
+	mat_roof_tile.roughness = 0.9
+	
+	var mat_vehicle = StandardMaterial3D.new()
+	mat_vehicle.albedo_color = Color(0.8, 0.2, 0.2)
+	mat_vehicle.roughness = 0.3
+	mat_vehicle.metallic = 0.5
+
 	# 1. Solid Grass (Underground section: Z = -1000 to Z = 2060)
 	var ground_solid_start = MeshInstance3D.new()
 	ground_solid_start.name = "GrassGround_Solid_Start"
@@ -237,12 +335,13 @@ func _ready():
 	
 	# Initialize random generator
 	randomize()
+	_init_shared_meshes()
 	_init_tree_meshes()
 	
 	# Fill background city behind Ben Thanh (Z < 0) so the camera doesn't see a void
 	for bg_z in range(-800, 0, 40):
 		var bg_pos = Vector3(0, 0, bg_z)
-		_spawn_city_buildings(city_root, bg_pos, bg_z, 0.0, 0.0, mat_concrete, mat_blue_glass, mat_dark_steel, mat_white, mat_emission)
+		_spawn_city_buildings(city_root, bg_pos, bg_z, 0.0, 0.0, mat_concrete, mat_blue_glass, mat_dark_steel, mat_white, mat_emission, mat_yellow_wall, mat_wood_red, mat_roof_tile, mat_bamboo, mat_leaves_dark)
 		# Also spawn some trees there
 		_spawn_tree(trees_root, bg_pos, bg_z, 0.0, 0.0, mat_trunk, mat_leaves_dark, mat_leaves_bright, mat_leaves_yellow)
 
@@ -269,10 +368,10 @@ func _ready():
 			if int(offset) % 200 == 0:
 				var road_pos = global_pos + dir * 20.0
 				var road_center_x = road_pos.x - 3.5
-				_spawn_perpendicular_road(city_root, road_pos, road_center_x, angle_y, mat_asphalt, mat_white, mat_emission)
+				_spawn_perpendicular_road(city_root, road_pos, road_center_x, angle_y, mat_asphalt, mat_white, mat_emission, mat_vehicle)
 				
 			# Spawn parallel highway segment every 40m
-			_spawn_parallel_highway(city_root, global_pos, offset, center_x, angle_y, mat_concrete, mat_asphalt, mat_dark_steel)
+			# _spawn_parallel_highway(city_root, global_pos, offset, center_x, angle_y, mat_concrete, mat_asphalt, mat_dark_steel)
 		
 		# 2. Spawn Chợ Bến Thành ngay trên ga Bến Thành (Z = 0)
 		if offset == 0.0:
@@ -281,7 +380,7 @@ func _ready():
 		# 3. Spawn City elements (skyscrapers) everywhere from Z = 0 to Z = 6500 (covers above tunnel & elevated viaduct)
 		if global_pos.z >= 0.0 and global_pos.z <= 6500.0:
 			if global_pos.z < 1400.0 or global_pos.z > 1950.0:
-				_spawn_city_buildings(city_root, global_pos, offset, center_x, angle_y, mat_concrete, mat_blue_glass, mat_dark_steel, mat_white, mat_emission)
+				_spawn_city_buildings(city_root, global_pos, offset, center_x, angle_y, mat_concrete, mat_blue_glass, mat_dark_steel, mat_white, mat_emission, mat_yellow_wall, mat_wood_red, mat_roof_tile, mat_bamboo, mat_leaves_dark)
 		
 		# 3.5 Spawn Ba Son Area
 		if int(offset) == 1520:
@@ -296,6 +395,10 @@ func _ready():
 			_spawn_transition_canopy(city_root, global_pos, center_x, angle_y, mat_concrete, mat_canopy_glass, mat_dark_steel)
 			
 		# 6. Spawn Tunnel Lights (Y < -5)
+		# Spawn Landmark 81 at Z=2960 (Tan Cang area)
+		if int(offset) == 2960:
+			_spawn_landmark_81(city_root, global_pos, center_x, angle_y, mat_blue_glass, mat_dark_steel, mat_emission)
+			
 		if global_pos.y < -5.0:
 			_spawn_tunnel_lights(pillars_root, global_pos, offset, angle_y, center_x, mat_emission)
 			
@@ -312,9 +415,9 @@ func _ready():
 		_generate_track_sleepers(path2, mat_trunk)
 		
 	_flush_tree_multimeshes()
-	_set_visibility_range(city_root, 600.0)
-	_set_visibility_range(pillars_root, 600.0)
-	_set_visibility_range(tracks_root, 600.0)
+	# _set_visibility_range(city_root, 600.0)
+	# _set_visibility_range(pillars_root, 600.0)
+	# _set_visibility_range(tracks_root, 600.0)
 
 func _spawn_t_pillar(root: Node3D, pos: Vector3, center_x: float, angle_y: float, mat: Material):
 	var pillar_node = Node3D.new()
@@ -529,82 +632,57 @@ func _spawn_transition_canopy(root: Node3D, pos: Vector3, center_x: float, angle
 		beam_t.position = Vector3(0.0, 8.0, 0.0)
 		rib.add_child(beam_t)
 
+
 func _spawn_ba_son_area(root: Node3D, center_x: float, angle_y: float, mat_concrete: Material, mat_dark_steel: Material, mat_water: Material, mat_bridge_tower: Material, mat_cable: Material, mat_luxury_glass: Material, mat_asphalt: Material):
 	# 1. Saigon River
-	# Center of the river roughly at Z = 1750
 	var river = MeshInstance3D.new()
 	var r_mesh = PlaneMesh.new()
-	r_mesh.size = Vector2(4000.0, 400.0) # Length 4000, Width 400
+	r_mesh.size = Vector2(4000.0, 400.0)
 	river.mesh = r_mesh
 	river.material_override = mat_water
 	river.position = Vector3(center_x, 0.5, 1750.0)
-	# River flows diagonally (its X axis is the length, so rotation +45 means length is at +135 deg)
 	river.rotation.y = angle_y + deg_to_rad(45.0)
 	root.add_child(river)
 	
 	# 2. Ba Son Bridge
-	# Perpendicular to the river (+45 degrees relative to track)
 	var bridge = Node3D.new()
 	bridge.name = "BaSonBridge"
 	bridge.position = Vector3(center_x, 0.0, 1750.0)
 	bridge.rotation.y = angle_y + deg_to_rad(45.0)
 	root.add_child(bridge)
 	
-	# Bridge Deck
-	var deck = CSGBox3D.new()
-	deck.size = Vector3(32.0, 2.0, 600.0)
+	var deck = MeshInstance3D.new()
+	deck.mesh = shared_box
+	deck.scale = Vector3(32.0, 2.0, 600.0)
 	deck.position = Vector3(0.0, 20.0, 0.0)
-	deck.material = mat_asphalt
+	deck.material_override = mat_asphalt
 	bridge.add_child(deck)
 	
-	# Bridge Edge barriers
-	for dx in [-16.0, 16.0]:
-		var barrier = CSGBox3D.new()
-		barrier.size = Vector3(0.5, 3.0, 600.0)
-		barrier.position = Vector3(dx, 21.5, 0.0)
-		barrier.material = mat_concrete
-		bridge.add_child(barrier)
-	
-	# Pylon (A-shaped sweeping tower)
-	var pylon = CSGBox3D.new()
-	pylon.size = Vector3(8.0, 120.0, 12.0)
+	var pylon = MeshInstance3D.new()
+	pylon.mesh = shared_box
+	pylon.scale = Vector3(8.0, 120.0, 12.0)
 	pylon.position = Vector3(0.0, 60.0, -150.0)
-	pylon.rotation_degrees.x = 15.0 # Leaning back
-	pylon.material = mat_bridge_tower
+	pylon.rotation_degrees.x = 15.0
+	pylon.material_override = mat_bridge_tower
 	bridge.add_child(pylon)
 	
-	# Cables
 	var pylon_top_local = Vector3(0.0, 110.0, -165.0)
 	for deck_z in range(-50, 250, 25):
 		for deck_x in [-15.0, 15.0]:
 			var cable = MeshInstance3D.new()
-			bridge.add_child(cable)
-			
-			# Calculate global points to use look_at correctly
 			var p1 = bridge.to_global(Vector3(deck_x, 21.0, deck_z))
 			var p2 = bridge.to_global(pylon_top_local)
 			var dist = p1.distance_to(p2)
-			
-			var c_mesh = CylinderMesh.new()
-			c_mesh.top_radius = 0.25
-			c_mesh.bottom_radius = 0.25
-			c_mesh.height = dist
-			cable.mesh = c_mesh
+			cable.mesh = shared_cyl
+			cable.scale = Vector3(0.5, dist, 0.5)
 			cable.material_override = mat_cable
-			
 			cable.global_position = (p1 + p2) / 2.0
 			cable.look_at(p2, Vector3.UP)
 			cable.rotation_degrees.x -= 90.0
+			bridge.add_child(cable)
 			
-	# 3. Marina Towers (Vinhomes Golden River)
-	# Adjusted coords to ensure they are on the bank, not the river itself (X + Z < 1460)
-	var tower_coords = [
-		Vector3(-80, 0, 1420),
-		Vector3(-130, 0, 1480),
-		Vector3(120, 0, 1200),
-		Vector3(160, 0, 1220)
-	]
-	
+	# 3. Marina Towers (Highly Detailed)
+	var tower_coords = [ Vector3(-100, 0, 1400), Vector3(-150, 0, 1460), Vector3(130, 0, 1200), Vector3(180, 0, 1250) ]
 	for i in range(tower_coords.size()):
 		var t_pos = tower_coords[i]
 		var tower = Node3D.new()
@@ -613,41 +691,85 @@ func _spawn_ba_son_area(root: Node3D, center_x: float, angle_y: float, mat_concr
 		tower.rotation.y = angle_y
 		root.add_child(tower)
 		
-		var t_height = 130.0 + (i * 20.0)
-		var body = CSGBox3D.new()
-		body.size = Vector3(30.0, t_height, 30.0)
+		var t_height = 140.0 + (i * 25.0)
+		
+		# Main Core
+		var body = MeshInstance3D.new()
+		body.mesh = shared_box
+		body.scale = Vector3(32.0, t_height, 32.0)
 		body.position = Vector3(0, t_height / 2.0, 0)
-		body.material = mat_luxury_glass
+		body.material_override = mat_luxury_glass
 		tower.add_child(body)
 		
-		# White frames on sides
-		for fx in [-15.5, 15.5]:
-			var frame = CSGBox3D.new()
-			frame.size = Vector3(1.0, t_height + 2.0, 31.0)
-			frame.position = Vector3(fx, t_height / 2.0, 0)
-			frame.material = mat_concrete
-			tower.add_child(frame)
+		# White external frames (exoskeleton)
+		for dx in [-16.5, 16.5]:
+			var frame1 = MeshInstance3D.new()
+			frame1.mesh = shared_box
+			frame1.scale = Vector3(1.5, t_height + 4.0, 33.0)
+			frame1.position = Vector3(dx, t_height / 2.0, 0)
+			frame1.material_override = mat_concrete
+			tower.add_child(frame1)
+		for dz in [-16.5, 16.5]:
+			var frame2 = MeshInstance3D.new()
+			frame2.mesh = shared_box
+			frame2.scale = Vector3(33.0, t_height + 4.0, 1.5)
+			frame2.position = Vector3(0, t_height / 2.0, dz)
+			frame2.material_override = mat_concrete
+			tower.add_child(frame2)
 			
-	# 4. The Sun Tower (Signature Block)
-	var sun_tower = Node3D.new()
-	sun_tower.name = "SunTower"
-	# Moved back to Z=1400 (from 1480) to avoid river
-	sun_tower.position = Vector3(center_x, 0.0, 1520.0) + Vector3(80.0, 0.0, -120.0).rotated(Vector3.UP, angle_y)
-	sun_tower.rotation.y = angle_y
-	root.add_child(sun_tower)
-	
-	var sun_body = CSGBox3D.new()
-	sun_body.size = Vector3(45.0, 160.0, 45.0)
-	sun_body.position = Vector3(0, 80.0, 0)
-	sun_body.material = mat_luxury_glass
-	sun_tower.add_child(sun_body)
-	
-	var sun_cap = CSGBox3D.new()
-	sun_cap.size = Vector3(46.0, 10.0, 46.0)
-	sun_cap.position = Vector3(0, 165.0, 0)
-	sun_cap.material = mat_dark_steel
-	sun_tower.add_child(sun_cap)
+		# Rooftop Helipad/Crown
+		var crown = MeshInstance3D.new()
+		crown.mesh = shared_cyl
+		crown.scale = Vector3(20.0, 3.0, 20.0)
+		crown.position = Vector3(0, t_height + 2.0, 0)
+		crown.material_override = mat_dark_steel
+		tower.add_child(crown)
 
+
+func _spawn_landmark_81(root: Node3D, pos: Vector3, center_x: float, angle_y: float, mat_glass: Material, mat_steel: Material, mat_emission: Material):
+	var landmark = Node3D.new()
+	landmark.name = "Landmark81"
+	# Offset to the right (Tan Cang park area)
+	landmark.position = Vector3(center_x, 0.0, pos.z) + Vector3(200.0, 0.0, 0.0).rotated(Vector3.UP, angle_y)
+	landmark.rotation.y = angle_y
+	root.add_child(landmark)
+	
+	# Landmark 81 is composed of 36 square tubes of different heights (approx 9x9 grid, trimmed edges)
+	var max_h = 461.0
+	var grid_size = 6
+	var tube_w = 12.0
+	
+	for cx in range(-3, 4):
+		for cz in range(-3, 4):
+			# Calculate height dropoff based on distance from center
+			var dist = max(abs(cx), abs(cz))
+			if dist == 3 and (abs(cx) == 3 and abs(cz) == 3): continue # Chop corners
+			
+			var h = max_h - (dist * 75.0)
+			if h < 50.0: continue
+			
+			var tube = MeshInstance3D.new()
+			tube.mesh = shared_box
+			tube.scale = Vector3(tube_w - 0.5, h, tube_w - 0.5)
+			tube.position = Vector3(cx * tube_w, h / 2.0, cz * tube_w)
+			tube.material_override = mat_glass
+			landmark.add_child(tube)
+			
+			# LED stripe on top edge
+			var led = MeshInstance3D.new()
+			led.mesh = shared_box
+			led.scale = Vector3(tube_w, 2.0, tube_w)
+			led.position = Vector3(cx * tube_w, h, cz * tube_w)
+			led.material_override = mat_emission
+			landmark.add_child(led)
+			
+	# Spire
+	var spire = MeshInstance3D.new()
+	spire.mesh = shared_cyl
+	spire.scale = Vector3(2.0, 60.0, 2.0)
+	spire.position = Vector3(0.0, max_h + 30.0, 0.0)
+	spire.material_override = mat_steel
+	landmark.add_child(spire)
 
 func _spawn_safety_barriers(root: Node3D, pos: Vector3, center_x: float, angle_y: float, mat_concrete: Material):
 	var barrier_node = Node3D.new()
@@ -674,160 +796,149 @@ func _spawn_safety_barriers(root: Node3D, pos: Vector3, center_x: float, angle_y
 	barrier_node.add_child(barrier_r)
 
 
-func _spawn_city_buildings(root: Node3D, pos: Vector3, seed_val: float, center_x: float, angle_y: float, mat_concrete: Material, mat_glass: Material, mat_steel: Material, mat_white: Material, mat_emission: Material):
-	# Use a deterministic pseudo-random seed based on position
+
+
+func _spawn_city_buildings(root: Node3D, pos: Vector3, seed_val: float, center_x: float, angle_y: float, mat_concrete: Material, mat_glass: Material, mat_steel: Material, mat_white: Material, mat_emission: Material, mat_yellow_wall: Material, mat_wood_red: Material, mat_roof_tile: Material, mat_bamboo: Material, mat_leaves_dark: Material):
 	var l_rng = RandomNumberGenerator.new()
 	l_rng.seed = int(seed_val * 777)
 	
-	# 75% chance to spawn building on left/right
 	for side in [-1, 1]:
-		if l_rng.randf() > 0.35:
-			var b_style = l_rng.randi_range(0, 3)
-			var b_height = l_rng.randf_range(30.0, 95.0)
-			var b_width = l_rng.randf_range(16.0, 26.0)
-			var b_depth = l_rng.randf_range(16.0, 26.0)
-			
-			# Giữ các tòa nhà cách đường ray một khoảng an toàn
-			var min_x = 38.0
-			if pos.z < 2200.0:
-				if pos.z < 200.0:
-					min_x = 40.0 # Tạo quảng trường rộng xung quanh Chợ Bến Thành
+		for layer in range(1, 3): # 2 layers deep
+			if l_rng.randf() > 0.15:
+				var b_style = 0
+				var r = l_rng.randf()
+				if pos.z < 1000.0:
+					if r < 0.5: b_style = 4
+					elif r < 0.7: b_style = 6
+					elif r < 0.9: b_style = 5
+					else: b_style = l_rng.randi_range(0, 3)
+				elif pos.z < 3000.0:
+					if r < 0.6: b_style = l_rng.randi_range(0, 3)
+					elif r < 0.8: b_style = 6
+					elif r < 0.9: b_style = 4
+					else: b_style = 7
 				else:
-					min_x = 14.0 # Giữ khoảng cách ngoài rãnh cỏ 14m
+					if r < 0.4: b_style = 7
+					elif r < 0.6: b_style = 4
+					elif r < 0.8: b_style = 5
+					elif r < 0.9: b_style = 6
+					else: b_style = l_rng.randi_range(0, 3)
+					
+				var min_x = 38.0
+				if pos.z < 2200.0:
+					if pos.z < 200.0: min_x = 40.0
+					else: min_x = 14.0
+					
+				# Layer 1 is close, Layer 2 is further back
+				var dist_x = l_rng.randf_range(min_x + (layer - 1) * 60.0, min_x + layer * 60.0)
+				var b_height = l_rng.randf_range(30.0, 95.0)
 				
-			var dist_x = l_rng.randf_range(min_x, 110.0)
-			var local_pos = Vector3(side * dist_x, b_height / 2.0, l_rng.randf_range(-15.0, 15.0))
-			
-			var building = Node3D.new()
-			building.name = "Building_" + str(int(local_pos.x)) + "_" + str(int(pos.z))
-			
-			# Set position relative to center_x, and rotate to follow track angle
-			building.position = Vector3(center_x, 0.0, pos.z)
-			building.rotation.y = angle_y
-			
-			# Tránh xây nhà trên mặt sông Sài Gòn (Z = 1750, chéo 45 độ)
-			var global_b_pos = building.position + local_pos.rotated(Vector3.UP, angle_y)
-			if abs((global_b_pos.x - center_x) + (global_b_pos.z - 1750.0)) < 400.0:
-				building.queue_free()
-				continue
+				# Increase height dynamically so they are visible above elevated tracks
+				if b_style == 4: b_height = l_rng.randf_range(15.0, 25.0)
+				elif b_style == 5: b_height = l_rng.randf_range(12.0, 20.0)
+				elif b_style == 7: b_height = l_rng.randf_range(15.0, 30.0)
+				else: b_height += layer * 20.0 # Background buildings are taller
 				
-			root.add_child(building)
-			
-			# Now add children relative to building origin (local_pos)
-			match b_style:
-				0: # Glass Office Tower
-					# Main glass block
-					var body = MeshInstance3D.new()
-					var mesh = BoxMesh.new()
-					mesh.size = Vector3(b_width, b_height, b_depth)
-					body.mesh = mesh
-					body.material_override = mat_glass
-					body.position = local_pos
-					building.add_child(body)
+				var local_pos = Vector3(side * dist_x, b_height / 2.0, l_rng.randf_range(-15.0, 15.0))
+				
+				var building = Node3D.new()
+				building.name = 'Bldg_' + str(int(local_pos.x)) + '_' + str(int(pos.z)) + '_' + str(layer)
+				building.position = Vector3(center_x, 0.0, pos.z)
+				building.rotation.y = angle_y
+				
+				var global_b_pos = building.position + local_pos.rotated(Vector3.UP, angle_y)
+				if abs((global_b_pos.x - center_x) + (global_b_pos.z - 1750.0)) < 400.0:
+					building.queue_free()
+					continue
 					
-					# Concrete side frames
-					var frame_l = MeshInstance3D.new()
-					var f_mesh = BoxMesh.new()
-					f_mesh.size = Vector3(1.0, b_height + 2.0, b_depth + 0.2)
-					frame_l.mesh = f_mesh
-					frame_l.material_override = mat_white
-					frame_l.position = local_pos + Vector3(-b_width/2.0, 1.0, 0.0)
-					building.add_child(frame_l)
-					
-					var frame_r = MeshInstance3D.new()
-					frame_r.mesh = f_mesh
-					frame_r.material_override = mat_white
-					frame_r.position = local_pos + Vector3(b_width/2.0, 1.0, 0.0)
-					building.add_child(frame_r)
-					
-				1: # Stepped Tower
-					# 3 nested blocks going smaller as they go up
-					var tier_h = b_height / 3.0
-					for tier in range(3):
-						var scale_f = 1.0 - (tier * 0.25)
-						var t_w = b_width * scale_f
-						var t_d = b_depth * scale_f
+				root.add_child(building)
+				
+				match b_style:
+					0, 1, 2, 3:
+						var body = MeshInstance3D.new()
+						body.mesh = shared_box
+						body.scale = Vector3(l_rng.randf_range(16, 26), b_height, l_rng.randf_range(16, 26))
+						body.material_override = mat_glass if b_style == 0 else (mat_white if b_style == 2 else mat_concrete)
+						body.position = local_pos
+						building.add_child(body)
+					4:
+						var row_width = 4.0
+						for h in range(4):
+							var house = MeshInstance3D.new()
+							house.mesh = shared_box
+							house.scale = Vector3(row_width, b_height * l_rng.randf_range(0.8, 1.2), 14.0)
+							house.material_override = wall_materials[l_rng.randi_range(0, wall_materials.size() - 1)] if wall_materials.size() > 0 else mat_yellow_wall
+							house.position = local_pos + Vector3(0, 0, (h - 1.5) * row_width)
+							building.add_child(house)
+							var balc = MeshInstance3D.new()
+							balc.mesh = shared_box
+							balc.scale = Vector3(row_width * 0.9, 1.2, 2.0)
+							balc.material_override = mat_leaves_dark
+							balc.position = house.position + Vector3(0, 3.0, 7.0)
+							building.add_child(balc)
+					5:
+						var base_w = 22.0
 						
-						var block = MeshInstance3D.new()
-						var mesh = BoxMesh.new()
-						mesh.size = Vector3(t_w, tier_h, t_d)
-						block.mesh = mesh
-						block.material_override = mat_concrete
-						block.position = local_pos + Vector3(0.0, (tier * tier_h) - (b_height / 2.0) + (tier_h / 2.0), 0.0)
-						building.add_child(block)
+						var body = MeshInstance3D.new()
+						body.mesh = shared_box
+						body.scale = Vector3(base_w - 4.0, b_height, base_w - 4.0)
+						body.material_override = wall_materials[l_rng.randi_range(0, wall_materials.size() - 1)] if wall_materials.size() > 0 else mat_yellow_wall
+						body.position = local_pos
+						building.add_child(body)
 						
-						# Add glowing yellow window stripes on each tier
-						var windows = MeshInstance3D.new()
-						var w_mesh = BoxMesh.new()
-						w_mesh.size = Vector3(t_w + 0.1, tier_h - 2.0, t_d + 0.1)
-						windows.mesh = w_mesh
-						windows.material_override = mat_emission
-						windows.position = block.position
-						building.add_child(windows)
-						
-					# Spire on top
-					var spire = MeshInstance3D.new()
-					var s_mesh = CylinderMesh.new()
-					s_mesh.top_radius = 0.05
-					s_mesh.bottom_radius = 0.2
-					s_mesh.height = 8.0
-					spire.mesh = s_mesh
-					spire.material_override = mat_steel
-					spire.position = local_pos + Vector3(0.0, (b_height / 2.0) + 4.0, 0.0)
-					building.add_child(spire)
-					
-				2: # Residential High-rise
-					# Main beige block
-					var body = MeshInstance3D.new()
-					var mesh = BoxMesh.new()
-					mesh.size = Vector3(b_width, b_height, b_depth)
-					body.mesh = mesh
-					body.material_override = mat_white
-					body.position = local_pos
-					building.add_child(body)
-					
-					# Horizontal dark window stripes
-					var num_floors = int(b_height / 4.0)
-					for floor_idx in range(num_floors):
-						var stripe = MeshInstance3D.new()
-						var s_mesh = BoxMesh.new()
-						s_mesh.size = Vector3(b_width + 0.1, 1.2, b_depth + 0.1)
-						stripe.mesh = s_mesh
-						stripe.material_override = mat_steel
-						stripe.position = local_pos + Vector3(0.0, - (b_height / 2.0) + (floor_idx * 4.0) + 2.0, 0.0)
-						building.add_child(stripe)
-						
-				3: # Corporate Block
-					# Wide angular building
-					var body = MeshInstance3D.new()
-					var mesh = BoxMesh.new()
-					mesh.size = Vector3(b_width * 1.5, b_height, b_depth)
-					body.mesh = mesh
-					body.material_override = mat_steel
-					body.position = local_pos
-					building.add_child(body)
-					
-					# Vertical columns in front
-					for col_idx in range(5):
-						var col = MeshInstance3D.new()
-						var c_mesh = BoxMesh.new()
-						c_mesh.size = Vector3(0.6, b_height, 0.4)
-						col.mesh = c_mesh
-						col.material_override = mat_white
-						col.position = local_pos + Vector3( - (b_width * 0.7) + (col_idx * (b_width * 0.35)), 0.0, (b_depth / 2.0) + 0.1 )
-						building.add_child(col)
+						for tier in range(3):
+							var roof = MeshInstance3D.new()
+							roof.mesh = shared_box
+							var w = base_w - (tier * 5.0)
+							roof.scale = Vector3(w, 2.0, w)
+							roof.material_override = mat_roof_tile
+							var roof_y = (b_height / 2.0) + (tier * 6.0) + 1.0
+							roof.position = local_pos + Vector3(0, roof_y, 0)
+							building.add_child(roof)
+							
+							if tier > 0:
+								var p_w = base_w - ((tier - 1) * 5.0) - 2.0
+								for px in [-p_w/2, p_w/2]:
+									for pz in [-p_w/2, p_w/2]:
+										var p = MeshInstance3D.new()
+										p.mesh = shared_cyl
+										p.scale = Vector3(0.5, 6.0, 0.5)
+										p.material_override = mat_wood_red
+										p.position = local_pos + Vector3(px, roof_y - 3.0, pz)
+										building.add_child(p)
+					6:
+						var body = MeshInstance3D.new()
+						body.mesh = shared_box
+						body.scale = Vector3(40.0, b_height, 12.0)
+						body.material_override = wall_materials[l_rng.randi_range(0, wall_materials.size() - 1)] if wall_materials.size() > 0 else mat_yellow_wall
+						body.position = local_pos
+						building.add_child(body)
+						for c in range(6):
+							var cage = MeshInstance3D.new()
+							cage.mesh = shared_box
+							cage.scale = Vector3(2.5, 4.0, 1.5)
+							cage.material_override = mat_steel
+							cage.position = local_pos + Vector3(-15 + (c * 6), 6.0, 6.5)
+							building.add_child(cage)
+					7:
+						for tr in range(7):
+							var bam = MeshInstance3D.new()
+							bam.mesh = shared_cyl
+							bam.scale = Vector3(0.4, b_height * l_rng.randf_range(0.7, 1.3), 0.4)
+							bam.material_override = mat_bamboo
+							bam.position = local_pos + Vector3(l_rng.randf_range(-6,6), 0, l_rng.randf_range(-6,6))
+							bam.rotation.z = l_rng.randf_range(-0.15, 0.15)
+							bam.rotation.x = l_rng.randf_range(-0.15, 0.15)
+							building.add_child(bam)
 
-
-func _spawn_perpendicular_road(root: Node3D, pos: Vector3, center_x: float, angle_y: float, mat_road: Material, mat_line: Material, mat_light: Material):
+func _spawn_perpendicular_road(root: Node3D, pos: Vector3, center_x: float, angle_y: float, mat_road: Material, mat_line: Material, mat_light: Material, mat_vehicle: Material = null):
 	var road = Node3D.new()
 	road.name = "PerpRoad_" + str(int(pos.z))
 	root.add_child(road)
 	
-	# Set position and rotation of the road root
 	road.position = Vector3(center_x, 0.0, pos.z)
 	road.rotation.y = angle_y
 	
-	# Asphalt road bed (extends 200m left and right locally)
 	var bed = MeshInstance3D.new()
 	var bed_mesh = BoxMesh.new()
 	bed_mesh.size = Vector3(500.0, 0.1, 15.0)
@@ -836,7 +947,6 @@ func _spawn_perpendicular_road(root: Node3D, pos: Vector3, center_x: float, angl
 	bed.position = Vector3(0.0, 0.05, 0.0)
 	road.add_child(bed)
 	
-	# Dashed lane markings
 	for x_offset in range(-240, 240, 20):
 		var dash = MeshInstance3D.new()
 		var dash_mesh = BoxMesh.new()
@@ -846,33 +956,50 @@ func _spawn_perpendicular_road(root: Node3D, pos: Vector3, center_x: float, angl
 		dash.position = Vector3(x_offset, 0.06, 0.0)
 		road.add_child(dash)
 		
-	# Streetlights on poles along the road
 	for side in [-1, 1]:
-		for streetlight_x in [-80, -30, 30, 80]:
-			var pole = Node3D.new()
+		for x_offset in range(-200, 200, 40):
+			if abs(x_offset) < 20: continue
+			var pole = MeshInstance3D.new()
+			var p_mesh = CylinderMesh.new()
+			p_mesh.top_radius = 0.1
+			p_mesh.bottom_radius = 0.15
+			p_mesh.height = 8.0
+			pole.mesh = p_mesh
+			pole.material_override = mat_road
+			pole.position = Vector3(x_offset, 4.0, side * 7.0)
 			road.add_child(pole)
-			pole.position = Vector3(streetlight_x, 0.0, side * 7.0)
 			
-			# Pole vertical
-			var vert = MeshInstance3D.new()
-			var pole_mesh = CylinderMesh.new()
-			pole_mesh.top_radius = 0.1
-			pole_mesh.bottom_radius = 0.1
-			pole_mesh.height = 7.0
-			vert.mesh = pole_mesh
-			vert.material_override = mat_line
-			vert.position.y = 3.5
-			pole.add_child(vert)
+			var bulb = MeshInstance3D.new()
+			var b_mesh = SphereMesh.new()
+			b_mesh.radius = 0.5
+			b_mesh.height = 1.0
+			bulb.mesh = b_mesh
+			bulb.material_override = mat_light
+			bulb.position = Vector3(x_offset, 8.2, side * 6.0)
+			road.add_child(bulb)
 			
-			# Light head
-			var head = MeshInstance3D.new()
-			var head_mesh = BoxMesh.new()
-			head_mesh.size = Vector3(1.2, 0.2, 0.4)
-			head.mesh = head_mesh
-			head.material_override = mat_light
-			head.position = Vector3(0.0, 7.0, -side * 0.5)
-			pole.add_child(head)
-
+	# Thêm xe cộ (Vehicles) - Đậu chờ đèn đỏ hoặc chạy dọc theo đường
+	var l_rng = RandomNumberGenerator.new()
+	l_rng.seed = int(pos.z * 13)
+	if mat_vehicle != null:
+		for v in range(20):
+			var car = MeshInstance3D.new()
+			car.mesh = shared_box
+			var is_bus = l_rng.randf() > 0.85
+			if is_bus:
+				car.scale = Vector3(8.0, 3.5, 2.5) # Xe buýt
+			else:
+				car.scale = Vector3(4.0, 1.5, 1.8) # Ô tô
+			
+			var rand_color = Color(l_rng.randf(), l_rng.randf(), l_rng.randf())
+			var dyn_mat = mat_vehicle.duplicate()
+			dyn_mat.albedo_color = rand_color
+			car.material_override = dyn_mat
+			
+			var lane = 1 if l_rng.randf() > 0.5 else -1
+			car.position = Vector3(l_rng.randf_range(-180, 180), car.scale.y / 2.0, lane * 3.5)
+			if abs(car.position.x) > 30.0: # Không đè lên đường ray ở giữa
+				road.add_child(car)
 
 func _spawn_parallel_highway(root: Node3D, pos: Vector3, offset: float, center_x: float, angle_y: float, mat_concrete: Material, mat_road: Material, _mat_steel: Material):
 	var segment = Node3D.new()

@@ -14,7 +14,7 @@ var original_env: Environment = null
 var is_map_lighting_active: bool = false
 
 func _ready():
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	# process_mode = Node.PROCESS_MODE_ALWAYS removed to allow game to pause
 	next_spawn_interval = randf_range(40.0, 50.0)
 	hud.main_menu_play.connect(start_game)
 	

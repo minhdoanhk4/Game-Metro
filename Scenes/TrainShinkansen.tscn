@@ -87,31 +87,41 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0.45, 1.5)
 size = Vector3(0.5, 0.5, 17)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car1/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car1/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car1/SeatsLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="SeatsRight" type="CSGBox3D" parent="Car1"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 0.45, 1.5)
 size = Vector3(0.5, 0.5, 17)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car1/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car1/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car1/SeatsRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="CabinWall" type="CSGBox3D" parent="Car1"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -7)
 size = Vector3(2.8, 3.3, 0.1)
@@ -172,31 +182,41 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car2/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6.25)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car2/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.25)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car2/SeatsLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6.75)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="SeatsRight" type="CSGBox3D" parent="Car2"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car2/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6.25)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car2/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.25)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car2/SeatsRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6.75)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="Light1" type="OmniLight3D" parent="Car2"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, -5)
 light_color = Color(1, 0.95, 0.9, 1)
@@ -238,31 +258,41 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car3/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car3/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car3/SeatsLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="SeatsRight" type="CSGBox3D" parent="Car3"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car3/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car3/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car3/SeatsRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="Light1" type="OmniLight3D" parent="Car3"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, -5)
 light_color = Color(1, 0.95, 0.9, 1)
@@ -304,31 +334,41 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car4/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car4/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car4/SeatsLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="SeatsRight" type="CSGBox3D" parent="Car4"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car4/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car4/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car4/SeatsRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="Light1" type="OmniLight3D" parent="Car4"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, -5)
 light_color = Color(1, 0.95, 0.9, 1)
@@ -370,31 +410,41 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car5/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car5/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car5/SeatsLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="SeatsRight" type="CSGBox3D" parent="Car5"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 0.45, 0)
 size = Vector3(0.5, 0.5, 19)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car5/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car5/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car5/SeatsRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="Light1" type="OmniLight3D" parent="Car5"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, -5)
 light_color = Color(1, 0.95, 0.9, 1)
@@ -426,31 +476,41 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0.45, 1.5)
 size = Vector3(0.5, 0.5, 17)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car6/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car6/SeatsLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car6/SeatsLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="SeatsRight" type="CSGBox3D" parent="Car6"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 0.45, 1.5)
 size = Vector3(0.5, 0.5, 17)
 material = SubResource("StandardMaterial3D_orange")
 
+
 [node name="SeatCut1" type="CSGBox3D" parent="Car6/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
 [node name="SeatCut2" type="CSGBox3D" parent="Car6/SeatsRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.75)
 operation = 2
 size = Vector3(1.5, 1.5, 2)
 
+[node name="SeatCut3" type="CSGBox3D" parent="Car6/SeatsRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.25)
+operation = 2
+size = Vector3(1.5, 1.5, 2)
 [node name="CabinWall" type="CSGBox3D" parent="Car6"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -7)
 size = Vector3(2.8, 3.3, 0.1)

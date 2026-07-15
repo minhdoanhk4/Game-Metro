@@ -138,10 +138,9 @@ func _on_area_exited(area):
 			train.current_station = null
 			
 		if train.is_player_controlled and not stop_completed:
-			if not GameManager.pass_by_pass:
-				var hud = get_node_or_null("/root/Main/HUD")
-				if hud and hud.has_method("trigger_game_over"):
-					hud.trigger_game_over("Bỏ trạm hoặc vượt quá điểm dừng tại ga " + station_name + "!")
+			var hud = get_node_or_null("/root/Main/HUD")
+			if hud and hud.has_method("trigger_game_over"):
+				hud.trigger_game_over("Bỏ trạm hoặc vượt quá điểm dừng tại ga " + station_name + "!")
 				
 		train_in_station = null
 		auto_open_timer = 0.0
