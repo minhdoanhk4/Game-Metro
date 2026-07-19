@@ -1,7 +1,8 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/LoadingScreen.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://Assets/game_logo.png" id="2_tex"]
+[ext_resource type="Texture2D" path="res://Assets/loading_page.png" id="2_tex"]
+[ext_resource type="Script" path="res://Scripts/CircleProgress.gd" id="3_script"]
 
 [node name="LoadingScreen" type="Control"]
 layout_mode = 3
@@ -32,15 +33,29 @@ texture = ExtResource("2_tex")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="ProgressBar" type="ProgressBar" parent="."]
+[node name="ProgressBar" type="Control" parent="."]
 layout_mode = 1
-anchors_preset = 12
+anchors_preset = 7
+anchor_left = 0.5
 anchor_top = 1.0
-anchor_right = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = 200.0
-offset_top = -120.0
-offset_right = -200.0
-offset_bottom = -90.0
+offset_left = -75.0
+offset_top = -200.0
+offset_right = 75.0
+offset_bottom = -50.0
 grow_horizontal = 2
 grow_vertical = 0
+script = ExtResource("3_script")
+
+[node name="Label" type="Label" parent="ProgressBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 32
+text = "0%"
+horizontal_alignment = 1
+vertical_alignment = 1

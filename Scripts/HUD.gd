@@ -29,9 +29,14 @@ var warning_tween: Tween = null
 var route_dots = []
 var station_names = ["Bến Thành", "Nhà hát TP", "Ba Son", "Văn Thánh", "Tân Cảng", "Thảo Điền", "An Phú", "Rạch Chiếc", "Phước Long", "Bình Thái", "Thủ Đức", "Khu CNC", "ĐH QG", "Suối Tiên"]
 
+var fps_label: Label = null
+
 @onready var shop_button = $ShopButton
 @onready var pause_button = $PauseButton
 @onready var in_game_exit_btn = $ExitButton
+@onready var volume_panel = $VolumePanel
+@onready var music_toggle = $VolumePanel/VBox/MusicBox/MusicToggle
+@onready var system_toggle = $VolumePanel/VBox/SystemBox/SystemToggle
 @onready var pause_menu_panel = $PauseMenuPanel
 @onready var resume_menu_btn = $PauseMenuPanel/CenterContainer/VBoxContainer/ResumeMenuBtn
 @onready var home_menu_btn = $PauseMenuPanel/CenterContainer/VBoxContainer/HomeMenuBtn
@@ -99,6 +104,11 @@ func _ready():
 	GameManager.money_changed.connect(_on_money_changed)
 	_on_money_changed(GameManager.money)
 	
+	# Initialize clock with current system time
+	var init_time = Time.get_time_dict_from_system()
+	if clock_label:
+		clock_label.text = "%02d:%02d" % [init_time["hour"], init_time["minute"]]
+	
 	# Symmetrical passenger label setup
 	var top_bar = get_node_or_null("TopBar")
 	if top_bar:
@@ -115,8 +125,14 @@ func _ready():
 		passenger_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		passenger_label.add_theme_font_size_override("font_size", 24)
 		passenger_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		passenger_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		passenger_label.add_theme_constant_override("outline_size", 4)
 		passenger_label.text = "Khách: 0"
 		top_bar.add_child(passenger_label)
+		
+	if money_label:
+		money_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		money_label.add_theme_constant_override("outline_size", 4)
 	
 	GameManager.time_updated.connect(_on_time_updated)
 	call_deferred("_init_route_bar")
@@ -126,9 +142,24 @@ func _ready():
 		big_warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		big_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		big_warning_label.add_theme_font_size_override("font_size", 18)
+		
+	signal_label = get_node_or_null("Dashboard/Margin/HBox/CenterSection/SignalPanel/SignalLabel")
+	if signal_label:
+		set_signal("GO!")
 	
-	# Cabin monitor creation removed
+	_setup_ui_bindings()
 
+func set_signal(state: String):
+	if not signal_label: return
+	signal_label.text = state
+	if state == "STOP":
+		signal_label.add_theme_color_override("font_color", Color(1, 0, 0, 1)) # Red
+	elif state == "STAND BY":
+		signal_label.add_theme_color_override("font_color", Color(1, 1, 0, 1)) # Yellow
+	else:
+		signal_label.add_theme_color_override("font_color", Color(0, 1, 0, 1)) # Green
+
+func _setup_ui_bindings():
 	if shop_button:
 		shop_button.pressed.connect(_on_depot_shop_pressed)
 		
@@ -136,6 +167,17 @@ func _ready():
 		pause_button.pressed.connect(_on_pause_pressed)
 	if has_node("ExitButton"):
 		in_game_exit_btn.pressed.connect(_on_in_game_exit_pressed)
+		if volume_panel:
+			music_toggle.toggled.connect(_on_music_toggled)
+			system_toggle.toggled.connect(_on_system_toggled)
+			
+			# Set initial states
+			var master_bus_idx = AudioServer.get_bus_index("Master")
+			system_toggle.button_pressed = not AudioServer.is_bus_mute(master_bus_idx)
+			
+			var mm = get_tree().root.get_node_or_null("MusicManager")
+			if mm:
+				music_toggle.button_pressed = not mm.is_muted
 		
 	if has_node("PauseMenuPanel"):
 		resume_menu_btn.pressed.connect(_on_resume_menu_pressed)
@@ -160,6 +202,8 @@ func _ready():
 	else:
 		get_tree().paused = true
 		_create_depot_menu()
+		if DisplayServer.get_name() == "headless":
+			call_deferred("_on_depot_action")
 
 
 
@@ -331,7 +375,24 @@ func _ready():
 		parent.move_child(custom_speed, 0) # Move to the left of SpeedBox
 		speed_progress = custom_speed
 
+	# --- FPS LABEL SETUP ---
+	fps_label = Label.new()
+	fps_label.add_theme_font_size_override("font_size", 24)
+	fps_label.add_theme_color_override("font_color", Color(0, 1, 0, 1))
+	fps_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	fps_label.add_theme_constant_override("outline_size", 4)
+	fps_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	fps_label.offset_left = -150
+	fps_label.offset_top = 80
+	fps_label.offset_right = -20
+	fps_label.offset_bottom = 110
+	fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	add_child(fps_label)
+
 func _process(_delta):
+	if fps_label:
+		fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
+
 	# Update passenger count
 	var pm = get_node_or_null("/root/Main/PassengerManager")
 	if passenger_label:
@@ -353,13 +414,19 @@ func _process(_delta):
 
 	if train_ref:
 		if signal_label and train_ref.has_method("is_block_clear"):
-			var clear = train_ref.is_block_clear()
-			if clear:
-				signal_label.text = "TÍN HIỆU: XANH (An Toàn)"
-				signal_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
-			else:
-				signal_label.text = "TÍN HIỆU: ĐỎ (Dừng Lại!)"
-				signal_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+			var can_show_block = true
+			if "station_signal_state" in train_ref:
+				if train_ref.station_signal_state != "GO!":
+					can_show_block = false
+			
+			if can_show_block:
+				var clear = train_ref.is_block_clear()
+				if clear:
+					signal_label.text = "GO!"
+					signal_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+				else:
+					signal_label.text = "TÍN HIỆU: ĐỎ (Dừng Lại!)"
+					signal_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
 
 		var speed = train_ref.get_speed()
 		speed_label.text = "%d" % int(abs(speed))
@@ -560,6 +627,7 @@ func _on_quit_pressed():
 	get_tree().quit()
 
 var is_victory_mode: bool = false
+var is_overshoot: bool = false
 
 func _on_restart_pressed():
 	if is_victory_mode:
@@ -568,6 +636,9 @@ func _on_restart_pressed():
 			train_ref.reverse_direction()
 		game_over_panel.hide()
 	else:
+		if is_overshoot:
+			GameManager.add_money(-100)
+			is_overshoot = false
 		GameManager.skip_menu = true
 		get_tree().paused = false
 		get_tree().reload_current_scene()
@@ -584,7 +655,15 @@ func trigger_game_over(reason: String):
 		
 	red_flash.show()
 	game_over_panel.color = Color(0.2, 0, 0, 0.8)
-	reason_label.text = "Lý do: " + reason
+	
+	if reason.begins_with("Bỏ trạm hoặc vượt quá"):
+		is_overshoot = true
+		var station_name = reason.replace("Bỏ trạm hoặc vượt quá điểm dừng tại ga ", "").replace("!", "")
+		reason_label.text = "[center][color=#ff3333][b]-100$[/b][/color]\nBạn đã bỏ trạm " + station_name + "![/center]"
+	else:
+		is_overshoot = false
+		reason_label.text = "[center]Lý do: " + reason + "[/center]"
+		
 	if restart_btn:
 		restart_btn.text = "Chơi lại"
 	if quit_btn2:
@@ -603,7 +682,7 @@ func trigger_victory():
 		
 	red_flash.hide()
 	game_over_panel.color = Color(0, 0.2, 0, 0.8)
-	reason_label.text = "Chúc mừng! Bạn đã điều khiển tàu về đến bến cuối cùng an toàn."
+	reason_label.text = "[center]Chúc mừng! Bạn đã điều khiển tàu về đến bến cuối cùng an toàn.[/center]"
 	if restart_btn:
 		restart_btn.text = "Đổi đầu tàu"
 	if quit_btn2:
@@ -713,7 +792,7 @@ func _init_nav_btn_styles():
 	var nav_color = Color(0.2, 0.3, 0.4)
 	if shop_button: apply_custom_btn_style(shop_button, nav_color)
 	if pause_button: apply_custom_btn_style(pause_button, nav_color)
-	if in_game_exit_btn: apply_custom_btn_style(in_game_exit_btn, Color(0.6, 0.2, 0.2))
+	if in_game_exit_btn: apply_custom_btn_style(in_game_exit_btn, nav_color)
 	if resume_menu_btn: apply_custom_btn_style(resume_menu_btn, Color(0.2, 0.6, 0.2))
 	if home_menu_btn: apply_custom_btn_style(home_menu_btn, nav_color)
 	if restart_menu_btn: apply_custom_btn_style(restart_menu_btn, nav_color)
@@ -1080,13 +1159,14 @@ func _create_depot_menu():
 	if has_node("Dashboard"): $Dashboard.hide()
 	if has_node("ThrottlePanel"): $ThrottlePanel.hide()
 	if has_node("RouteBarPanel"): $RouteBarPanel.hide()
-	if has_node("ShopButton"): $ShopButton.hide()
-	if has_node("PauseButton"): $PauseButton.hide()
-	if has_node("ExitButton"): $ExitButton.hide()
+	if has_node("ShopButton"): $ShopButton.show()
+	if has_node("PauseButton"): $PauseButton.show()
+	if has_node("ExitButton"): $ExitButton.show()
 		
 	depot_menu_container = Control.new()
 	depot_menu_container.name = "DepotMenu"
 	depot_menu_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+	depot_menu_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(depot_menu_container)
 	
 	if has_node("TopBar"):
@@ -1246,12 +1326,15 @@ func _on_depot_action():
 			show_message("Đã mở khóa thành công " + GameManager.train_list[current_preview_index]["name"] + "!")
 
 func _on_pause_pressed():
+	if pause_menu_panel:
+		move_child(pause_menu_panel, -1)
+		pause_menu_panel.show()
 	get_tree().paused = true
-	pause_menu_panel.show()
 
 func _on_resume_menu_pressed():
 	get_tree().paused = false
-	pause_menu_panel.hide()
+	if pause_menu_panel:
+		pause_menu_panel.hide()
 
 func _on_home_menu_pressed():
 	get_tree().paused = false
@@ -1265,4 +1348,15 @@ func _on_exit_menu_pressed():
 	get_tree().quit()
 
 func _on_in_game_exit_pressed():
-	get_tree().quit()
+	if volume_panel:
+		move_child(volume_panel, -1)
+		volume_panel.visible = not volume_panel.visible
+
+func _on_music_toggled(button_pressed: bool):
+	var mm = get_tree().root.get_node_or_null("MusicManager")
+	if mm:
+		mm.is_muted = not button_pressed
+
+func _on_system_toggled(button_pressed: bool):
+	var master_bus_idx = AudioServer.get_bus_index("Master")
+	AudioServer.set_bus_mute(master_bus_idx, not button_pressed)

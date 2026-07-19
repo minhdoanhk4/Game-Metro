@@ -15,6 +15,7 @@ var current_speed: float = 0.0 # km/h
 var current_throttle: float = 0.0 # 0.0 to 1.0 (0 is brake)
 var doors_open: bool = false
 var passenger_count: int = 0
+var max_passengers: int = 220
 var global_door_progress_left: float = 0.0
 var global_door_progress_right: float = 0.0
 var approach_speed_limit: float = INF # set by Station to cap speed in zone
@@ -58,15 +59,23 @@ var bridge_audio: AudioStreamPlayer3D
 var stopping_audio: AudioStreamPlayer3D
 
 var has_played_approach_sound: bool = false
-var has_played_depart_sound: bool = true
-var has_played_stop_sound: bool = true
+var has_played_depart_sound: bool = false
+var has_played_stop_sound: bool = false
 var bridge_sound_cooldown: float = 0.0
 var prev_y: float = 0.0
 var prev_yaw: float = 0.0
 var is_preview: bool = false
 var ai_timer_in_game_minutes: float = 0.0
 
+var scheduled_lane_change: bool = false
+var target_lane_path: Path3D = null
+var crossover_z: float = 0.0
 
+var station_signal_state: String = "GO!"
+var has_stopped_at_current_station: bool = false
+var stand_by_timer: float = 0.0
+var waiting_at_terminal: bool = false
+var penalty_cooldown: float = 0.0
 
 
 
@@ -115,6 +124,7 @@ func _ready():
 		max_speed = 220.0
 		acceleration = 18.0
 		braking_force = 28.0
+		max_passengers = 350
 	elif "catlinh" in path or "catlinh" in t_name:
 		max_speed = 80.0
 		acceleration = 8.0
@@ -319,10 +329,16 @@ func _start_at_station():
 
 	var station = null
 	var target_name = "BEN THANH" if direction_forward else "THU DUC"
+	var best_station = null
+	var min_dist = INF
 	for s in stations:
 		if s.station_name.to_upper() == target_name:
-			station = s
-			break
+			var local_pos = path_node.to_local(s.global_transform.origin)
+			if abs(local_pos.x) < min_dist:
+				min_dist = abs(local_pos.x)
+				best_station = s
+	if best_station:
+		station = best_station
 			
 	if not station:
 		station = stations[0]
@@ -341,6 +357,16 @@ func _start_at_station():
 	# Start with doors open at the station
 	current_station = station
 	doors_open = true
+	waiting_at_terminal = true
+	
+	if is_player_controlled:
+		station_signal_state = "STAND BY"
+		stand_by_timer = 30.0
+		has_stopped_at_current_station = true
+		var hud = get_node_or_null("/root/Main/HUD")
+		if hud and hud.has_method("set_signal"):
+			hud.set_signal(station_signal_state)
+		
 	call_deferred("emit_doors_opened")
 	print("Train spawned at station: ", station.station_name, " | progress: ", train_progress)
 
@@ -437,10 +463,31 @@ func _process(delta):
 		_animate_doors(delta)
 		return
 
+	if waiting_at_terminal:
+		var trains = get_tree().get_nodes_in_group("train")
+		var all_waiting = true
+		for t in trains:
+			if not is_instance_valid(t) or t.is_queued_for_deletion(): continue
+			if not t.waiting_at_terminal:
+				all_waiting = false
+				break
+		if all_waiting and trains.size() >= 2:
+			for t in trains:
+				if is_instance_valid(t) and not t.is_queued_for_deletion():
+					t.waiting_at_terminal = false
+					if t.is_player_controlled:
+						t.stand_by_timer = 30.0
+						t.station_signal_state = "STAND BY"
+						var hud = get_node_or_null("/root/Main/HUD")
+						if hud and hud.has_method("set_signal"):
+							hud.set_signal(t.station_signal_state)
+					else:
+						t.ai_timer_in_game_minutes = 0.0
+
 	_handle_input(delta)
 	_update_physics(delta)
 	_update_audio(delta)
-
+	_update_signal_state(delta)
 
 	var is_underground = car1.global_transform.origin.z < 2200.0
 	
@@ -460,6 +507,114 @@ func _process(delta):
 					break
 	
 	_animate_doors(delta)
+
+func _update_signal_state(delta):
+	if not is_player_controlled: return
+	
+	var hud = get_node_or_null("/root/Main/HUD")
+	
+	if penalty_cooldown > 0.0:
+		penalty_cooldown -= delta
+	
+	if current_station != null:
+		var station_local = path_node.to_local(current_station.global_transform.origin)
+		var station_offset = path_node.curve.get_closest_offset(station_local)
+		var dist = abs(station_offset - train_progress)
+		if dist < 60.0:
+			if not has_stopped_at_current_station:
+				if station_signal_state == "GO!":
+					station_signal_state = "STOP"
+					if hud and hud.has_method("set_signal"): hud.set_signal(station_signal_state)
+		else:
+			if station_signal_state == "STOP":
+				if not has_stopped_at_current_station:
+					_apply_penalty(20, "Không dừng tại ga")
+					_apply_penalty(100, "Vượt trạm")
+			
+			has_stopped_at_current_station = false
+			if station_signal_state != "GO!":
+				station_signal_state = "GO!"
+				if hud and hud.has_method("set_signal"): hud.set_signal(station_signal_state)
+	else:
+		has_stopped_at_current_station = false
+		if station_signal_state != "GO!":
+			station_signal_state = "GO!"
+			if hud and hud.has_method("set_signal"): hud.set_signal(station_signal_state)
+			
+	if station_signal_state == "STAND BY":
+		if not waiting_at_terminal:
+			stand_by_timer -= delta
+			if stand_by_timer <= 0.0:
+				station_signal_state = "GO!"
+			
+			if hud and hud.has_method("set_signal"): hud.set_signal(station_signal_state)
+			
+	# Penalty Logic
+	if current_throttle > 0.0 or current_speed > 0.5:
+		if penalty_cooldown <= 0.0:
+			if station_signal_state == "STAND BY":
+				var s_upper = current_station.station_name.to_upper() if current_station else ""
+				if s_upper == "BEN THANH" or s_upper == "THU DUC":
+					_apply_penalty(80, "Xuất phát tại ga cuối khi chưa đồng bộ tín hiệu GO!")
+				else:
+					_apply_penalty(50, "Di chuyển khi có tín hiệu STAND BY")
+
+func _apply_penalty(amount: int, reason: String):
+	penalty_cooldown = 3.0 # Only penalize once every 3 seconds
+	if GameManager:
+		GameManager.money -= amount
+		var hud = get_node_or_null("/root/Main/HUD")
+		if hud and hud.has_method("show_message"):
+			hud.show_message("BỊ PHẠT $" + str(amount) + ": " + reason)
+
+func _reset_ai_to_opposite_terminal(player_terminal: String):
+	var trains = _get_trains()
+	var ai_train = null
+	for t in trains:
+		if not is_instance_valid(t) or t.is_queued_for_deletion(): continue
+		if not t.is_player_controlled:
+			ai_train = t
+			break
+			
+	if is_instance_valid(ai_train) and not ai_train.is_queued_for_deletion():
+		# If player is at BEN THANH, AI goes to THU DUC on Path3D_2 going backward
+		# If player is at THU DUC, AI goes to BEN THANH on Path3D_1 going forward
+		var is_player_at_ben_thanh = (player_terminal == "BEN THANH")
+		
+		# Set AI direction and target path
+		ai_train.direction_forward = not is_player_at_ben_thanh
+		ai_train.scheduled_lane_change = true
+		ai_train.current_speed = 0.0
+		ai_train.current_throttle = 0.0
+		ai_train.doors_open = false
+		ai_train.ai_timer_in_game_minutes = 0.0
+		
+		# Move to opposite path
+		var parent = get_parent()
+		if parent is Path3D:
+			var main_root = parent.get_parent()
+			if main_root:
+				var p1 = main_root.get_node_or_null("Path3D_1")
+				var p2 = main_root.get_node_or_null("Path3D_2")
+				if p1 and p2:
+					var target_ai_path = p2 if is_player_at_ben_thanh else p1
+					ai_train.target_lane_path = target_ai_path
+					
+					var ai_parent = ai_train.get_parent()
+					if ai_parent:
+						ai_parent.remove_child(ai_train)
+					target_ai_path.add_child(ai_train)
+					ai_train.path_node = target_ai_path
+					for f in ai_train.follows:
+						if f.get_parent():
+							f.get_parent().remove_child(f)
+						target_ai_path.add_child(f)
+					
+					var l = target_ai_path.curve.get_baked_length()
+					ai_train.train_progress = l - 200.0 if not ai_train.direction_forward else 50.0
+					ai_train.force_position_update(ai_train.train_progress)
+					ai_train.scheduled_lane_change = false
+					print("[Train] Reset AI to opposite terminal!")
 
 func _animate_doors(delta):
 	# Fallback: resolve nearest station if current_station is null
@@ -516,23 +671,34 @@ func _animate_doors(delta):
 	
 func _handle_input(delta):
 	if not is_player_controlled and doors_open:
-		var time_scale = 12.0
-		if GameManager and "time_scale" in GameManager:
-			time_scale = GameManager.time_scale
-		var in_game_minutes_per_sec = (time_scale / 60.0)
-		ai_timer_in_game_minutes += delta * in_game_minutes_per_sec
-		if ai_timer_in_game_minutes >= 1.5:
-			close_doors()
-			serviced_station = current_station
-			if serviced_station == null:
-				serviced_station = get_nearest_station()
-			ai_timer_in_game_minutes = 0.0
+		if not waiting_at_terminal:
+			ai_timer_in_game_minutes += delta
+			if ai_timer_in_game_minutes >= 30.0: # Close doors after 30 real-world seconds
+				close_doors()
+				ai_timer_in_game_minutes = 0.0
+				
+				# After closing doors at a terminal, we DO NOT reverse again!
+				# Reversing happens when the train ARRIVES at the terminal, not when it departs.
+				serviced_station = current_station
+				if serviced_station == null:
+					serviced_station = get_nearest_station()
+				print("[AI Train] Closed doors at ", serviced_station.station_name if serviced_station else "NULL", ". serviced_station set.")
 
 	if doors_open:
 		current_throttle = move_toward(current_throttle, 0.0, delta * 2.0)
 		return
 		
 	if not is_player_controlled:
+		# FAILSAFE: If standing still with doors closed for more than 5 seconds, force throttle
+		if not doors_open and current_throttle == 0.0 and abs(current_speed) < 0.1:
+			ai_timer_in_game_minutes += delta
+			if ai_timer_in_game_minutes > 5.0:
+				print("[AI Train] FAILSAFE TRIGGERED! Forcing train to move from ", current_station.station_name if current_station else "unknown")
+				current_throttle = 0.5
+				ai_timer_in_game_minutes = 0.0
+		elif current_throttle > 0.0:
+			ai_timer_in_game_minutes = 0.0
+
 		var should_brake = false
 		var nearest = current_station
 		if nearest == null:
@@ -544,17 +710,25 @@ func _handle_input(delta):
 			var target_offset = station_offset + 45.0 if direction_forward else station_offset - 45.0
 			var remaining_dist = target_offset - train_progress if direction_forward else train_progress - target_offset
 			
-			var braking_dist = max((max_speed * max_speed) / (7.2 * braking_force) * 1.8, 80.0)
-			if remaining_dist > 0 and remaining_dist < braking_dist + 50.0:
+			var braking_dist = (max_speed * max_speed) / (7.2 * braking_force) * 1.3
+			if remaining_dist > -30.0 and remaining_dist < braking_dist + 50.0:
 				if remaining_dist < braking_dist:
 					should_brake = true
-					if remaining_dist < 2.0 and current_speed < 1.0:
+					if remaining_dist < 12.0 and current_speed < 1.0:
 						current_throttle = 0.0
 						if current_speed < 0.1 and not doors_open:
 							open_doors()
 							ai_timer_in_game_minutes = 0.0
+							if current_station != null:
+								var s_name = current_station.station_name.to_upper()
+								if s_name == "BEN THANH" or s_name == "THU DUC":
+									reverse_direction()
 					else:
-						current_throttle = move_toward(current_throttle, 0.0, delta * 1.5)
+						# If we are braking but moving too slowly and haven't reached the station yet, creep forward!
+						if current_speed < 2.0 and remaining_dist > 5.0:
+							current_throttle = 0.05 # Creep speed
+						else:
+							current_throttle = 0.0
 		else:
 			if nearest == null:
 				serviced_station = null
@@ -579,6 +753,8 @@ func _update_physics(delta):
 				var hud = get_node_or_null("/root/Main/HUD")
 				if hud and hud.has_method("trigger_game_over"):
 					hud.trigger_game_over("Vượt đèn đỏ! Tàu phía trước chưa rời ga kế tiếp.")
+			else:
+				print("[AI Train] Block NOT clear at ", current_station.station_name, ". Throttle forced to 0. train_progress=", train_progress)
 			current_throttle = 0.0
 
 	if current_throttle > 0:
@@ -602,19 +778,103 @@ func _update_physics(delta):
 		
 		var total_length = path_node.curve.get_baked_length()
 		if total_length > 0:
+			if not is_player_controlled:
+				if train_progress > total_length + 200.0 or train_progress < -200.0:
+					queue_free()
+					return
+					
+			if scheduled_lane_change and target_lane_path != null:
+				var cross_entry = crossover_z - 30.0 if direction_forward else crossover_z + 30.0
+				var cross_exit = crossover_z + 30.0 if direction_forward else crossover_z - 30.0
+				
+				var passed_entirely = false
+				var front_z = follows[0].global_position.z
+				if direction_forward and front_z >= cross_exit + 100.0:
+					passed_entirely = true
+				elif not direction_forward and front_z <= cross_exit - 100.0:
+					passed_entirely = true
+					
+				if passed_entirely:
+					scheduled_lane_change = false
+					var parent = get_parent()
+					if parent and parent != target_lane_path:
+						var current_global = follows[0].global_position
+						parent.remove_child(self)
+						target_lane_path.add_child(self)
+						path_node = target_lane_path
+						for f in follows:
+							if f.get_parent():
+								f.get_parent().remove_child(f)
+							target_lane_path.add_child(f)
+							f.h_offset = 0.0
+						
+						train_progress = target_lane_path.curve.get_closest_offset(target_lane_path.to_local(current_global))
+						force_position_update(train_progress)
+
+			var get_track_pos = func(prog: float) -> Vector3:
+				var local_xform = path_node.curve.sample_baked_with_rotation(prog, true)
+				var global_xform = path_node.global_transform * local_xform
+				var global_pos = global_xform.origin
+				
+				if not scheduled_lane_change or target_lane_path == null:
+					return global_pos
+					
+				var cross_entry = crossover_z - 30.0 if direction_forward else crossover_z + 30.0
+				var cross_exit = crossover_z + 30.0 if direction_forward else crossover_z - 30.0
+				
+				var denom = cross_exit - cross_entry
+				var t = 0.0
+				if abs(denom) > 0.001:
+					t = clamp((global_pos.z - cross_entry) / denom, 0.0, 1.0)
+					
+				var s = t * t * (3.0 - 2.0 * t)
+				var diff_vec = target_lane_path.global_position - path_node.global_position
+				var target_offset = diff_vec.dot(global_xform.basis.x)
+				var h = lerp(0.0, target_offset, s)
+				
+				return global_pos + global_xform.basis.x * h
+
 			for j in range(cars.size()):
 				var progress_offset = -j * 21.0 if direction_forward else j * 21.0
-				follows[j].progress = train_progress + progress_offset
+				var prog = train_progress + progress_offset
+				follows[j].progress = prog
+				follows[j].h_offset = 0.0
 				
 				var is_last = (j == cars.size() - 1)
+				var pos = get_track_pos.call(prog)
+				cars[j].global_position = pos + Vector3(0, 0.5, 0)
+				
 				var rot_y = 0.0
 				if direction_forward:
 					rot_y = PI if is_last else 0.0
 				else:
 					rot_y = 0.0 if is_last else PI
-				var basis = Basis().rotated(Vector3.UP, rot_y)
-				if j < cars.size() and j < follows.size():
-					cars[j].global_transform = follows[j].global_transform * Transform3D(basis, Vector3(0, 0.5, 0))
+					
+				if scheduled_lane_change and target_lane_path != null:
+					var cross_entry = crossover_z - 30.0 if direction_forward else crossover_z + 30.0
+					var cross_exit = crossover_z + 30.0 if direction_forward else crossover_z - 30.0
+					var denom = cross_exit - cross_entry
+					var t = 0.0
+					if abs(denom) > 0.001:
+						t = clamp((pos.z - cross_entry) / denom, 0.0, 1.0)
+					
+					var diff_vec = target_lane_path.global_position - path_node.global_position
+					var temp_local = path_node.curve.sample_baked_with_rotation(prog, true)
+					var temp_global_basis = path_node.global_transform.basis * temp_local.basis
+					var target_offset = diff_vec.dot(temp_global_basis.x)
+					if t > 0.0 and t < 1.0:
+						var rot_offset = atan(target_offset * 0.12 * t * (1.0 - t))
+						if direction_forward:
+							rot_y -= rot_offset
+						else:
+							rot_y += rot_offset
+				
+				var base_xform = path_node.curve.sample_baked_with_rotation(prog, true)
+				var basis = path_node.global_transform.basis * base_xform.basis
+				basis = basis.rotated(basis.y.normalized(), rot_y)
+				
+				if j < cars.size():
+					cars[j].global_transform.basis = basis
 
 	# Play stopping sound when slowing down inside the station
 	var is_braking_near_station = false
@@ -726,6 +986,13 @@ func open_doors() -> bool:
 			return false
 			
 		doors_open = true
+		if is_player_controlled and current_station != null:
+			station_signal_state = "STAND BY"
+			stand_by_timer = 30.0
+			has_stopped_at_current_station = true
+			var hud = get_node_or_null("/root/Main/HUD")
+			if hud and hud.has_method("set_signal"): hud.set_signal(station_signal_state)
+			
 		if doors_audio and doors_audio.stream: doors_audio.play()
 		print("Doors opened")
 		doors_opened.emit()
@@ -779,6 +1046,7 @@ func is_block_clear() -> bool:
 		return true
 		
 	for t in trains:
+		if not is_instance_valid(t) or t.is_queued_for_deletion(): continue
 		if t == self: continue
 		if t.get_parent() != my_path: continue
 		if "direction_forward" in t and t.direction_forward != direction_forward: continue
@@ -803,13 +1071,35 @@ func reverse_direction():
 		train_progress += spacing
 		
 	direction_forward = not direction_forward
-	doors_open = false
+	doors_open = true
+	waiting_at_terminal = true
 	current_speed = 0.0
 	current_throttle = 0.0
 	
-	var hud = get_node_or_null("/root/Main/HUD")
-	if hud and hud.has_method("update_door_status"):
-		hud.update_door_status(false)
+	if is_player_controlled:
+		station_signal_state = "STAND BY"
+		var hud = get_node_or_null("/root/Main/HUD")
+		if hud and hud.has_method("set_signal"):
+			hud.set_signal(station_signal_state)
+	
+	call_deferred("emit_doors_opened")
+
+	# Schedule swap to the other track if it exists
+	var parent = get_parent()
+	if parent is Path3D:
+		var main_root = parent.get_parent()
+		if main_root:
+			var p1 = main_root.get_node_or_null("Path3D_1")
+			var p2 = main_root.get_node_or_null("Path3D_2")
+			if p1 and p2:
+				target_lane_path = p2 if parent == p1 else p1
+				scheduled_lane_change = true
+				if direction_forward:
+					# Driving forward from Ben Thanh
+					crossover_z = 150.0
+				else:
+					# Driving backward from Thu Duc
+					crossover_z = 5880.0
 
 func get_open_door_global_positions() -> Array:
 	var list = []

@@ -30,7 +30,7 @@ func _get_platform_top_y(station: Node) -> float:
 
 func _spawn_initial_passengers():
 	for s in stations:
-		_spawn_platform_passengers(s, randi_range(50, 120))
+		_spawn_platform_passengers(s, randi_range(20, 80))
 
 func _spawn_platform_passengers(station: Node, count: int):
 	var side = station.platform_side
@@ -95,7 +95,13 @@ func _on_doors_opened(train: Node):
 					waiting_passengers.append(p)
 				
 		waiting_passengers.shuffle()
+		
+		var max_p = train.get("max_passengers") if "max_passengers" in train else 220
+		var cur_p = train.get("passenger_count") if "passenger_count" in train else 0
+		var space_left = max(0, max_p - cur_p)
+		
 		var board_count = mini(randi_range(5, 100), waiting_passengers.size())
+		board_count = mini(board_count, space_left)
 		
 		for i in range(board_count):
 			var p = waiting_passengers[i]
@@ -116,7 +122,16 @@ func _on_doors_opened(train: Node):
 			p.assign_door(door_pos, interior_x, nearest_door.car)
 		
 	# 2. Trigger alighting
+	var current_station_passengers = 0
+	for p in platform_passengers:
+		if is_instance_valid(p) and p.current_station == station:
+			current_station_passengers += 1
+			
 	var alight_count = randi_range(5, 100)
+	var max_allowed = 100
+	if current_station_passengers + alight_count > max_allowed:
+		alight_count = max(0, max_allowed - current_station_passengers)
+		
 	for i in range(alight_count):
 		var door = doors[randi() % doors.size()]
 		var p = Node3D.new()

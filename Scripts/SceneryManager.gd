@@ -9,6 +9,8 @@ var main_scene: Node
 var tree_multimeshes: Dictionary = {}
 var tree_meshes: Dictionary = {}
 var wall_materials: Array = []
+var mat_emission: StandardMaterial3D = null
+var building_materials: Array = []
 
 
 # --- Shared Meshes for Optimization ---
@@ -22,24 +24,44 @@ func _init_shared_meshes():
 	shared_cyl.height = 1.0
 
 
-func _create_window_texture(base_color: Color, window_color: Color, is_glass: bool) -> ImageTexture:
-	var img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	img.fill(base_color)
+func _create_building_textures(base_color: Color, is_glass: bool) -> Array:
+	var albedo_img = Image.create(256, 256, false, Image.FORMAT_RGBA8)
+	albedo_img.fill(base_color)
 	
-	# Draw windows (grid)
+	var emission_img = Image.create(256, 256, false, Image.FORMAT_RGBA8)
+	emission_img.fill(Color.BLACK)
+	
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	
 	var win_w = 12
 	var win_h = 16
 	var spacing_x = 20
 	var spacing_y = 24
 	
-	for y in range(4, 64, spacing_y):
-		for x in range(4, 64, spacing_x):
+	var lit_window_color = Color(1.0, 0.95, 0.6)
+	var unlit_window_color = Color(0.15, 0.15, 0.18)
+	if is_glass:
+		unlit_window_color = Color(0.08, 0.22, 0.42)
+		lit_window_color = Color(1.0, 0.98, 0.8)
+		
+	for y in range(4, 256, spacing_y):
+		for x in range(4, 256, spacing_x):
+			var is_on = rng.randf() < 0.25
+			
+			var color_to_use = lit_window_color if is_on else unlit_window_color
+			var emission_color = Color(1.0, 0.95, 0.6) if is_on else Color.BLACK
+			
 			for dy in range(win_h):
 				for dx in range(win_w):
-					if x + dx < 64 and y + dy < 64:
-						img.set_pixel(x + dx, y + dy, window_color)
+					if x + dx < 256 and y + dy < 256:
+						albedo_img.set_pixel(x + dx, y + dy, color_to_use)
+						emission_img.set_pixel(x + dx, y + dy, emission_color)
 						
-	return ImageTexture.create_from_image(img)
+	return [
+		ImageTexture.create_from_image(albedo_img),
+		ImageTexture.create_from_image(emission_img)
+	]
 
 func _init_tree_meshes():
 	tree_meshes["trunk"] = CylinderMesh.new()
@@ -139,7 +161,7 @@ func _ready():
 	mat_asphalt.roughness = 0.9
 	
 	# 6. Yellow Emission (Windows / Lights)
-	var mat_emission = StandardMaterial3D.new()
+	mat_emission = StandardMaterial3D.new()
 	mat_emission.albedo_color = Color(1.0, 0.9, 0.5)
 	mat_emission.emission_enabled = true
 	mat_emission.emission = Color(1.0, 0.9, 0.5)
@@ -212,6 +234,7 @@ func _ready():
 
 	# --- Vietnamese Materials ---
 	
+	building_materials.clear()
 
 	# Create diverse wall materials
 	var colors = [
@@ -227,36 +250,66 @@ func _ready():
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = c
 		mat.roughness = 0.9
-		# Generate a corresponding window texture for this color
-		var tex = _create_window_texture(c, Color(0.3, 0.4, 0.3), false)
-		mat.albedo_texture = tex
-		mat.uv1_scale = Vector3(0.2, 0.2, 0.2)
+		
+		# Generate random building textures (patchy windows)
+		var textures = _create_building_textures(c, false)
+		mat.albedo_texture = textures[0]
+		# uv1_scale scaled down by 4x (from 0.2 to 0.05) because texture size is 256x256
+		mat.uv1_scale = Vector3(0.05, 0.05, 0.05)
 		mat.uv1_triplanar = true
 		mat.uv1_world_triplanar = true
+		
+		# Emission setup
+		mat.emission_enabled = true
+		mat.emission_operator = 1 # EMISSION_OP_MULTIPLY
+		mat.emission = Color.WHITE
+		mat.emission_texture = textures[1]
+		mat.emission_energy_multiplier = 0.0
+		
 		wall_materials.append(mat)
+		building_materials.append(mat)
 
 	var mat_yellow_wall = StandardMaterial3D.new()
 	mat_yellow_wall.albedo_color = Color(0.9, 0.75, 0.3)
 	mat_yellow_wall.roughness = 0.9
-	# Generate window textures
-	var tex_concrete = _create_window_texture(Color(0.65, 0.65, 0.68), Color(0.2, 0.2, 0.2), false)
-	var tex_blue_glass = _create_window_texture(Color(0.12, 0.32, 0.58), Color(0.8, 0.9, 1.0), true)
-	var tex_yellow = _create_window_texture(Color(0.9, 0.75, 0.3), Color(0.3, 0.5, 0.3), false)
 	
-	mat_concrete.albedo_texture = tex_concrete
-	mat_concrete.uv1_scale = Vector3(0.1, 0.1, 0.1)
+	# Generate window textures
+	var texs_concrete = _create_building_textures(Color(0.65, 0.65, 0.68), false)
+	var texs_blue_glass = _create_building_textures(Color(0.12, 0.32, 0.58), true)
+	var texs_yellow = _create_building_textures(Color(0.9, 0.75, 0.3), false)
+	
+	mat_concrete.albedo_texture = texs_concrete[0]
+	mat_concrete.uv1_scale = Vector3(0.025, 0.025, 0.025) # from 0.1 to 0.025
 	mat_concrete.uv1_triplanar = true
 	mat_concrete.uv1_world_triplanar = true
+	mat_concrete.emission_enabled = true
+	mat_concrete.emission_operator = 1
+	mat_concrete.emission = Color.WHITE
+	mat_concrete.emission_texture = texs_concrete[1]
+	mat_concrete.emission_energy_multiplier = 0.0
+	building_materials.append(mat_concrete)
 	
-	mat_blue_glass.albedo_texture = tex_blue_glass
-	mat_blue_glass.uv1_scale = Vector3(0.05, 0.05, 0.05)
+	mat_blue_glass.albedo_texture = texs_blue_glass[0]
+	mat_blue_glass.uv1_scale = Vector3(0.0125, 0.0125, 0.0125) # from 0.05 to 0.0125
 	mat_blue_glass.uv1_triplanar = true
 	mat_blue_glass.uv1_world_triplanar = true
+	mat_blue_glass.emission_enabled = true
+	mat_blue_glass.emission_operator = 1
+	mat_blue_glass.emission = Color.WHITE
+	mat_blue_glass.emission_texture = texs_blue_glass[1]
+	mat_blue_glass.emission_energy_multiplier = 0.0
+	building_materials.append(mat_blue_glass)
 	
-	mat_yellow_wall.albedo_texture = tex_yellow
-	mat_yellow_wall.uv1_scale = Vector3(0.2, 0.2, 0.2)
+	mat_yellow_wall.albedo_texture = texs_yellow[0]
+	mat_yellow_wall.uv1_scale = Vector3(0.05, 0.05, 0.05) # from 0.2 to 0.05
 	mat_yellow_wall.uv1_triplanar = true
 	mat_yellow_wall.uv1_world_triplanar = true
+	mat_yellow_wall.emission_enabled = true
+	mat_yellow_wall.emission_operator = 1
+	mat_yellow_wall.emission = Color.WHITE
+	mat_yellow_wall.emission_texture = texs_yellow[1]
+	mat_yellow_wall.emission_energy_multiplier = 0.0
+	building_materials.append(mat_yellow_wall)
 
 
 	var mat_wood_red = StandardMaterial3D.new()
@@ -418,6 +471,80 @@ func _ready():
 	# _set_visibility_range(city_root, 600.0)
 	# _set_visibility_range(pillars_root, 600.0)
 	# _set_visibility_range(tracks_root, 600.0)
+	
+	_create_x_crossover(150.0, -40.0, 60.0)
+	_create_x_crossover(5880.0, 15.0, 60.0)
+
+func _create_curved_track(parent: Node3D, p1: Vector3, p2: Vector3, mat_bed: Material, mat_rail: Material):
+	var segments = 12
+	var length = abs(p2.z - p1.z)
+	var z_start = min(p1.z, p2.z)
+	var z_end = max(p1.z, p2.z)
+	var x_start = p1.x if p1.z < p2.z else p2.x
+	var x_end = p2.x if p1.z < p2.z else p1.x
+	
+	for i in range(segments):
+		var t1 = float(i) / segments
+		var t2 = float(i + 1) / segments
+		
+		# Smoothstep function for S-curve: 3t^2 - 2t^3
+		var s1 = t1 * t1 * (3.0 - 2.0 * t1)
+		var s2 = t2 * t2 * (3.0 - 2.0 * t2)
+		
+		var x1 = lerp(x_start, x_end, s1)
+		var x2 = lerp(x_start, x_end, s2)
+		
+		var z1 = lerp(z_start, z_end, t1)
+		var z2 = lerp(z_start, z_end, t2)
+		
+		var center = Vector3((x1+x2)/2.0, 0, (z1+z2)/2.0)
+		var diff = Vector3(x2-x1, 0, z2-z1)
+		var seg_len = diff.length()
+		var angle = atan2(diff.x, diff.z)
+		
+		var bed = CSGBox3D.new()
+		bed.size = Vector3(4.0, 0.5, seg_len + 0.1) # overlap slightly to prevent gaps
+		bed.position = center + Vector3(0, 0.25, 0)
+		bed.rotation.y = angle
+		bed.material = mat_bed
+		parent.add_child(bed)
+		
+		var rail_l = CSGBox3D.new()
+		rail_l.size = Vector3(0.1, 0.1, seg_len + 0.1)
+		rail_l.position = center + Vector3(-0.7 * cos(angle), 0.55, 0.7 * sin(angle))
+		rail_l.rotation.y = angle
+		rail_l.material = mat_rail
+		parent.add_child(rail_l)
+		
+		var rail_r = CSGBox3D.new()
+		rail_r.size = Vector3(0.1, 0.1, seg_len + 0.1)
+		rail_r.position = center + Vector3(0.7 * cos(angle), 0.55, -0.7 * sin(angle))
+		rail_r.rotation.y = angle
+		rail_r.material = mat_rail
+		parent.add_child(rail_r)
+
+func _create_x_crossover(z_pos: float, y_pos: float, length: float):
+	var crossover = Node3D.new()
+	crossover.name = "XCrossover_" + str(z_pos)
+	crossover.position = Vector3(0, y_pos, z_pos)
+	main_scene.add_child(crossover)
+	
+	var mat_trackbed = StandardMaterial3D.new()
+	mat_trackbed.albedo_color = Color(0.35, 0.35, 0.38)
+	mat_trackbed.roughness = 0.9
+	
+	var mat_rail = StandardMaterial3D.new()
+	mat_rail.albedo_color = Color(0.12, 0.12, 0.13)
+	mat_rail.metallic = 0.8
+	mat_rail.roughness = 0.5
+	
+	var p1a = Vector3(3.5, 0, -length/2)
+	var p1b = Vector3(-3.5, 0, length/2)
+	_create_curved_track(crossover, p1a, p1b, mat_trackbed, mat_rail)
+	
+	var p2a = Vector3(-3.5, 0, -length/2)
+	var p2b = Vector3(3.5, 0, length/2)
+	_create_curved_track(crossover, p2a, p2b, mat_trackbed, mat_rail)
 
 func _spawn_t_pillar(root: Node3D, pos: Vector3, center_x: float, angle_y: float, mat: Material):
 	var pillar_node = Node3D.new()
@@ -676,10 +803,11 @@ func _spawn_ba_son_area(root: Node3D, center_x: float, angle_y: float, mat_concr
 			cable.mesh = shared_cyl
 			cable.scale = Vector3(0.5, dist, 0.5)
 			cable.material_override = mat_cable
+			
+			bridge.add_child(cable) # MUST add to tree before setting global transform/look_at
 			cable.global_position = (p1 + p2) / 2.0
 			cable.look_at(p2, Vector3.UP)
 			cable.rotation_degrees.x -= 90.0
-			bridge.add_child(cable)
 			
 	# 3. Marina Towers (Highly Detailed)
 	var tower_coords = [ Vector3(-100, 0, 1400), Vector3(-150, 0, 1460), Vector3(130, 0, 1200), Vector3(180, 0, 1250) ]
@@ -1385,3 +1513,34 @@ func _set_visibility_range(node: Node, max_dist: float):
 		node.visibility_range_end_margin = 50.0
 	for child in node.get_children():
 		_set_visibility_range(child, max_dist)
+
+func _process(delta):
+	var target_energy = 0.0
+	if GameManager:
+		var time_h = GameManager.time_hours
+		if time_h > 18.5 or time_h < 5.5:
+			target_energy = 2.0
+		elif time_h >= 17.0 and time_h <= 18.5:
+			# Sunset: fade in from 0.0 to 2.0
+			var t = (time_h - 17.0) / 1.5
+			target_energy = lerp(0.0, 2.0, t)
+		elif time_h >= 5.5 and time_h <= 7.0:
+			# Sunrise: fade out from 2.0 to 0.0
+			var t = (time_h - 5.5) / 1.5
+			target_energy = lerp(2.0, 0.0, t)
+			
+	if mat_emission:
+		mat_emission.emission_energy_multiplier = target_energy
+		
+	# Twinkle skyscraper window lights at night
+	if not building_materials.is_empty():
+		var time_ms = Time.get_ticks_msec()
+		for idx in range(building_materials.size()):
+			var mat = building_materials[idx]
+			if mat:
+				# Twinkle wave with phase offset per material index
+				var phase = idx * 1.5
+				var twinkle = sin(time_ms * 0.002 + phase) * 0.35 + cos(time_ms * 0.0045 - phase) * 0.15
+				var energy = target_energy + (twinkle if target_energy > 0.0 else 0.0)
+				# Clamp to ensure it doesn't go below 0 or exceed 3.0
+				mat.emission_energy_multiplier = clamp(energy, 0.0, 3.0)

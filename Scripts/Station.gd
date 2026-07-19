@@ -16,6 +16,7 @@ var has_checked_parking: bool = false
 var welcome_played_this_stop: bool = false
 var time_at_station_without_opening: float = 0.0
 var penalty_applied: bool = false
+var elevated_lights: Array = []
 
 var welcome_audio: AudioStreamPlayer3D
 var bg_audio: AudioStreamPlayer3D
@@ -90,10 +91,11 @@ func _setup_safe_zone():
 	safe_zone_mesh.visible = false
 
 func _on_area_entered(area):
+	if not is_instance_valid(area) or area.is_queued_for_deletion(): return
 	var train = null
-	if area.get_parent() is Train:
+	if is_instance_valid(area.get_parent()) and area.get_parent() is Train:
 		train = area.get_parent()
-	elif area.get_parent() and area.get_parent().get_parent() is Train:
+	elif is_instance_valid(area.get_parent()) and is_instance_valid(area.get_parent().get_parent()) and area.get_parent().get_parent() is Train:
 		train = area.get_parent().get_parent()
 		
 	print("[Station ", station_name, "] _on_area_entered: area=", area.name, " train=", train, " train_in_station=", train_in_station)
@@ -120,15 +122,16 @@ func _on_area_entered(area):
 			safe_zone_mesh.visible = true
 
 func _on_area_exited(area):
+	if not is_instance_valid(area) or area.is_queued_for_deletion(): return
 	var train = null
-	if area.get_parent() is Train:
+	if is_instance_valid(area.get_parent()) and area.get_parent() is Train:
 		train = area.get_parent()
-	elif area.get_parent() and area.get_parent().get_parent() is Train:
+	elif is_instance_valid(area.get_parent()) and is_instance_valid(area.get_parent().get_parent()) and area.get_parent().get_parent() is Train:
 		train = area.get_parent().get_parent()
 		
 	print("[Station ", station_name, "] _on_area_exited: area=", area.name, " train=", train, " train_in_station=", train_in_station)
 	
-	if train and train == train_in_station:
+	if train:
 		# If the train is still stopped (speed < 2.0), ignore the exit signal (probably physics jitter)
 		if abs(train.get_speed()) < 2.0:
 			print("[Station ", station_name, "] Train exited but speed is < 2.0. Ignoring exit.")
@@ -137,14 +140,18 @@ func _on_area_exited(area):
 		if train.current_station == self:
 			train.current_station = null
 			
-		if train.is_player_controlled and not stop_completed:
-			var hud = get_node_or_null("/root/Main/HUD")
-			if hud and hud.has_method("trigger_game_over"):
-				hud.trigger_game_over("Bỏ trạm hoặc vượt quá điểm dừng tại ga " + station_name + "!")
-				
-		train_in_station = null
-		auto_open_timer = 0.0
-		print("[Station ", station_name, "] Cleared train_in_station on exit.")
+		if train == train_in_station:
+			if train.is_player_controlled and not stop_completed:
+				var hud = get_node_or_null("/root/Main/HUD")
+				if hud and hud.has_method("trigger_game_over"):
+					hud.trigger_game_over("Bỏ trạm hoặc vượt quá điểm dừng tại ga " + station_name + "!")
+			train_in_station = null
+			auto_open_timer = 0.0
+			print("[Station ", station_name, "] Cleared train_in_station on exit.")
+			
+		if not train.is_player_controlled:
+			reset_for_next_lap()
+			print("[Station ", station_name, "] Reset station on exit for AI train.")
 
 # Called by HUD after train moves away (> 2 km) following a completed stop
 func reset_for_next_lap():
@@ -155,11 +162,22 @@ func reset_for_next_lap():
 	penalty_applied = false
 
 func _process(delta):
+	if not elevated_lights.is_empty():
+		var time_h = 6.0
+		if GameManager and "time_hours" in GameManager:
+			time_h = GameManager.time_hours
+		# Turn on from 17:00 to 06:00
+		var should_be_on = time_h >= 17.0 or time_h <= 6.0
+		var target_energy = 8.4 if should_be_on else 0.0 # Decreased by 30%
+		for l in elevated_lights:
+			l.light_energy = lerp(l.light_energy, target_energy, delta * 2.0)
+			
 	_update_station_audio(delta)
 	
-	if not train_in_station:
+	if not is_instance_valid(train_in_station):
+		train_in_station = null
 		return
-
+		
 	var speed = abs(train_in_station.get_speed())
 
 	if speed >= 2.0:
@@ -219,7 +237,7 @@ func _process(delta):
 			time_at_station_without_opening += delta
 			var limit = 10.0
 			if GameManager and "time_scale" in GameManager:
-				limit = 120.0 / GameManager.time_scale
+				limit = 60.0 / GameManager.time_scale
 				
 			if time_at_station_without_opening >= limit:
 				penalty_applied = true
@@ -227,7 +245,7 @@ func _process(delta):
 					GameManager.add_money(-50)
 				var hud = get_node_or_null("/root/Main/HUD")
 				if hud and hud.has_method("show_message"):
-					hud.show_message("Bị phạt 50$ vì đỗ lố 2 phút không mở cửa!")
+					hud.show_message("Bị phạt 50$ vì đỗ lố 1 phút không mở cửa!")
 	else:
 		if speed >= 2.0:
 			auto_open_timer = 0.0  # reset if train moves again
@@ -263,6 +281,11 @@ func _process(delta):
 			# Money is now handled dynamically per passenger boarding/alighting in PassengerManager
 			if main_scene.has_method("process_station_stop"):
 				main_scene.process_station_stop(station_name)
+			
+			var s_upper = station_name.to_upper()
+			if (s_upper == "BEN THANH" or s_upper == "THU DUC") and GameManager:
+				GameManager.last_player_terminal_departure_time = Time.get_unix_time_from_system()
+				print("[Scheduler] Player completed terminal stop. AI departure scheduled in 5 minutes.")
 		# Release the train reference so we don't keep processing
 		train_in_station = null
 		print("[Station ", station_name, "] Stop cycle completed. train_in_station set to null.")
@@ -335,8 +358,8 @@ func _setup_visuals():
 			light.position = Vector3(0.0, 4.0, z_offset)
 			light.omni_range = 35.0
 			light.light_color = Color(1.0, 0.95, 0.8)
-			light.light_energy = 5.0
-			light.shadow_enabled = true
+			light.light_energy = 3.5 # Decreased by 30%
+			light.shadow_enabled = false
 			add_child(light)
 			
 		# 2. Big signs on the walls
@@ -428,7 +451,23 @@ func _setup_visuals():
 			lbl.position = Vector3(0, 0, 0.11 if rot == 0 else -0.11)
 			lbl.rotation_degrees.y = rot
 			hanging_sign.add_child(lbl)
-		
+			
+		# Elevated Station Lights
+		for rot in [0, 180]:
+			for z_offset in range(-60, 61, 30):
+				var light = OmniLight3D.new()
+				var x_pos = 2.0 if platform_side == 1 else -2.0
+				if rot == 180: x_pos = -x_pos
+				if platform_side == 0:
+					x_pos = 3.5 if rot == 0 else -3.5
+					
+				light.position = Vector3(x_pos, 7.4, z_offset)
+				light.omni_range = 25.0
+				light.light_color = Color(1.0, 0.95, 0.8)
+				light.light_energy = 0.0
+				light.shadow_enabled = false
+				add_child(light)
+				elevated_lights.append(light)
 
 
 	# Add legs to the existing StationSign so it's placed on the platform floor

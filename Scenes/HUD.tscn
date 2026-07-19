@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" path="res://Assets/horn_icon.svg" id="6_horn_icon"]
 [ext_resource type="Texture2D" path="res://Assets/pause_icon.svg" id="7_pause_icon"]
 [ext_resource type="Texture2D" path="res://Assets/exit_icon.svg" id="8_exit_icon"]
+[ext_resource type="Texture2D" path="res://Assets/volume_icon.svg" id="9_volume_icon"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dash"]
 bg_color = Color(0.08, 0.09, 0.12, 0.9)
@@ -92,8 +93,51 @@ offset_left = 20.0
 offset_top = 234.0
 offset_right = 68.0
 offset_bottom = 282.0
-icon = ExtResource("8_exit_icon")
+icon = ExtResource("9_volume_icon")
 icon_alignment = 1
+expand_icon = true
+
+[node name="VolumePanel" type="Panel" parent="."]
+visible = false
+offset_left = 80.0
+offset_top = 234.0
+offset_right = 230.0
+offset_bottom = 314.0
+
+[node name="VBox" type="VBoxContainer" parent="VolumePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+
+[node name="MusicBox" type="HBoxContainer" parent="VolumePanel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VolumePanel/VBox/MusicBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Music"
+
+[node name="MusicToggle" type="CheckButton" parent="VolumePanel/VBox/MusicBox"]
+layout_mode = 2
+button_pressed = true
+
+[node name="SystemBox" type="HBoxContainer" parent="VolumePanel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VolumePanel/VBox/SystemBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "System"
+
+[node name="SystemToggle" type="CheckButton" parent="VolumePanel/VBox/SystemBox"]
+layout_mode = 2
+button_pressed = true
+
 
 [node name="RouteBarPanel" type="Panel" parent="."]
 anchors_preset = 5
@@ -272,6 +316,29 @@ size_flags_vertical = 4
 max_value = 120.0
 show_percentage = false
 
+[node name="CenterSection" type="HBoxContainer" parent="Dashboard/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="SignalPanel" type="Panel" parent="Dashboard/Margin/HBox/CenterSection"]
+custom_minimum_size = Vector2(200, 60)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="SignalLabel" type="Label" parent="Dashboard/Margin/HBox/CenterSection/SignalPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0, 1, 0, 1)
+theme_override_font_sizes/font_size = 32
+text = "GO!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="RightSection" type="HBoxContainer" parent="Dashboard/Margin/HBox"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -373,12 +440,13 @@ theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
 text = "GAME OVER"
 horizontal_alignment = 1
 
-[node name="ReasonLabel" type="Label" parent="GameOverPanel/Panel/VBoxContainer"]
+[node name="ReasonLabel" type="RichTextLabel" parent="GameOverPanel/Panel/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Lý do: ..."
-horizontal_alignment = 1
-autowrap_mode = 2
+theme_override_font_sizes/normal_font_size = 24
+theme_override_font_sizes/bold_font_size = 40
+bbcode_enabled = true
+text = "[center]Lý do: ...[/center]"
+fit_content = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="GameOverPanel/Panel/VBoxContainer"]
 layout_mode = 2

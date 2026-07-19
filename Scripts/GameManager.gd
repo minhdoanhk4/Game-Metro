@@ -10,50 +10,53 @@ var click_audio: AudioStreamPlayer
 
 # Time System
 var time_hours: float = 6.0
-var time_scale: float = 12.0 # 12x faster: 2 real hours = 24 game hours
+var time_scale: float = 1.0 # 1:1 real-time: 1 real hour = 1 game hour
 signal time_updated(hours: int, minutes: int)
 
 var _last_emitted_minute: int = -1
+var last_player_terminal_departure_time: float = -1.0
 
 func _process(delta):
-	time_hours += (delta / 3600.0) * time_scale
-	if time_hours >= 24.0:
-		time_hours -= 24.0
-		
-	var h = int(time_hours)
-	var m = int((time_hours - h) * 60)
+	var time_dict = Time.get_time_dict_from_system()
+	var h = time_dict["hour"]
+	var m = time_dict["minute"]
+	var s = time_dict["second"]
+	
+	time_hours = h + (m / 60.0) + (s / 3600.0)
 	
 	if m != _last_emitted_minute:
 		_last_emitted_minute = m
 		time_updated.emit(h, m)
 
-const SAVE_PATH = "user://savegame.save"
+func get_save_path() -> String:
+	if not OS.has_feature("editor"):
+		return OS.get_executable_path().get_base_dir().path_join("savegame.save")
+	return "user://savegame.save"
 
 func save_game():
 	var save_dict = {
-		"money": money,
-		"score": score,
 		"owned_trains": owned_trains,
 		"owned_liveries": owned_liveries,
 		"train_liveries": train_liveries,
 		"current_train_index": current_train_index
 	}
-	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var file = FileAccess.open(get_save_path(), FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(save_dict))
 		file.close()
 
 func load_game():
-	if FileAccess.file_exists(SAVE_PATH):
-		var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	money = 100
+	score = 0
+	var path = get_save_path()
+	if FileAccess.file_exists(path):
+		var file = FileAccess.open(path, FileAccess.READ)
 		if file:
 			var json_string = file.get_as_text()
 			var json = JSON.new()
 			var error = json.parse(json_string)
 			if error == OK:
 				var data = json.get_data()
-				if data.has("money"): money = int(data["money"])
-				if data.has("score"): score = int(data["score"])
 				
 				if data.has("owned_trains"):
 					owned_trains.clear()
@@ -72,6 +75,10 @@ func load_game():
 					select_train(int(data["current_train_index"]))
 					
 			file.close()
+
+func _init():
+	var time_dict = Time.get_time_dict_from_system()
+	time_hours = time_dict["hour"] + (time_dict["minute"] / 60.0) + (time_dict["second"] / 3600.0)
 
 func _ready():
 	load_game()

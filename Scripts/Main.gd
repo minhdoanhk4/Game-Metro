@@ -8,14 +8,13 @@ var train_instance: Node = null
 var ai_train_instance: Node = null
 
 var train_scene_resource: PackedScene = null
-var spawn_timer: float = 0.0
-var next_spawn_interval: float = 45.0 # 8 to 10 game minutes = 40 to 50 real seconds
+var next_spawn_interval: float = 40.0 # 8 game minutes = 40 real seconds
 var original_env: Environment = null
 var is_map_lighting_active: bool = false
 
 func _ready():
 	# process_mode = Node.PROCESS_MODE_ALWAYS removed to allow game to pause
-	next_spawn_interval = randf_range(40.0, 50.0)
+	next_spawn_interval = 40.0
 	hud.main_menu_play.connect(start_game)
 	
 	if has_node("WorldEnvironment"):
@@ -30,6 +29,12 @@ func _ready():
 	sm.name = "SceneryManager"
 	sm.set_script(preload("res://Scripts/SceneryManager.gd"))
 	add_child(sm)
+	
+	if not get_tree().root.has_node("MusicManager"):
+		var mm = Node.new()
+		mm.name = "MusicManager"
+		mm.set_script(preload("res://Scripts/MusicManager.gd"))
+		get_tree().root.call_deferred("add_child", mm)
 	
 
 	
@@ -66,6 +71,9 @@ func _setup_preview_camera_and_position(train_instance: Node):
 	await get_tree().process_frame
 	if not is_instance_valid(train_instance) or not train_instance.is_inside_tree():
 		return
+		
+	if get_tree().root.has_node("MusicManager"):
+		get_tree().root.get_node("MusicManager").start_music()
 		
 	var station = null
 	for s in get_tree().get_nodes_in_group("stations"):
@@ -125,15 +133,17 @@ func start_game():
 		menu_camera.queue_free()
 		menu_camera = null
 		
-	var pm = Node.new()
-	pm.name = "PassengerManager"
-	pm.set_script(preload("res://Scripts/PassengerManager.gd"))
-	add_child(pm)
+	if not has_node("PassengerManager"):
+		var pm = Node.new()
+		pm.name = "PassengerManager"
+		pm.set_script(preload("res://Scripts/PassengerManager.gd"))
+		add_child(pm)
 		
 	var train_path = GameManager.get_current_train_path()
 	train_scene_resource = load(train_path)
 	if train_scene_resource:
 		_spawn_train()
+		_spawn_ai_train()
 
 func _spawn_train():
 	train_instance = train_scene_resource.instantiate()
@@ -155,13 +165,6 @@ func set_map_lighting_active(active: bool):
 func _process(delta):
 	# Spawning and camera drone tracking should only happen when not paused
 	if not get_tree().paused:
-		if train_scene_resource:
-			spawn_timer += delta
-			if spawn_timer >= next_spawn_interval:
-				spawn_timer = 0.0
-				next_spawn_interval = randf_range(40.0, 50.0)
-				_spawn_ai_train()
-				
 		if train_instance and camera_drone:
 			var car1 = train_instance.get_node_or_null("Car1")
 			if car1:
@@ -178,7 +181,7 @@ func _update_lighting_and_env():
 	var is_underground = false
 	var cam = get_viewport().get_camera_3d()
 	if cam:
-		is_underground = cam.global_position.y < -5.0
+		is_underground = cam.global_position.y < -5.0 and cam.global_position.z < 2060.0
 
 	# Map view and menu get forced bright daylight lighting
 	if is_map_lighting_active or is_instance_valid(menu_camera):
@@ -186,8 +189,7 @@ func _update_lighting_and_env():
 			var light = $DirectionalLight3D
 			light.visible = true
 			light.light_energy = 1.2
-			light.rotation.x = deg_to_rad(-60.0) # noon-ish overhead light
-			light.rotation.y = deg_to_rad(-45.0)
+			light.rotation = Vector3(deg_to_rad(-60.0), deg_to_rad(-45.0), 0) # noon-ish overhead light
 			
 		if has_node("WorldEnvironment") and original_env:
 			var we = $WorldEnvironment
@@ -206,15 +208,54 @@ func _update_lighting_and_env():
 			light.light_energy = 0.0
 		else:
 			light.visible = true
-			var day_progress = (GameManager.time_hours - 6.0) / 12.0
-			var angle = lerp(0.0, -PI, clamp(day_progress, 0.0, 1.0))
-			light.rotation.x = angle
-			light.rotation.y = deg_to_rad(-45.0)
+			var time_hours = GameManager.time_hours
 			
-			if GameManager.time_hours > 18.0 or GameManager.time_hours < 6.0:
-				light.light_energy = 0.05
+			# Map 24 hours to a full rotation circle. At 12:00, sun points down (-PI/2). At 24:00, it points up (PI/2).
+			var angle = -(time_hours - 6.0) / 24.0 * 2.0 * PI
+			
+			# Update rotation as a full Vector3 to avoid Euler angle read-modify-write corruption
+			light.rotation = Vector3(angle, deg_to_rad(-45.0), 0)
+			
+			# Piecewise Day/Night environment color and energy interpolation
+			var sun_energy = 0.0
+			var ambient_energy = 0.0
+			var sun_color = Color(1.0, 1.0, 0.95)
+			
+			if time_hours >= 4.0 and time_hours < 5.0:
+				# Early dawn (4am - 5am)
+				var t = (time_hours - 4.0) / 1.0
+				sun_energy = 0.0
+				ambient_energy = lerp(0.0, 0.15, t)
+				sun_color = Color(0.5, 0.35, 0.7) # Purplish dawn glow
+			elif time_hours >= 5.0 and time_hours < 7.0:
+				# Sunrise (5am - 7am)
+				var t = (time_hours - 5.0) / 2.0
+				sun_energy = lerp(0.0, 1.2, t)
+				ambient_energy = lerp(0.15, 0.9, t)
+				sun_color = Color(1.0, 0.55, 0.3).lerp(Color(1.0, 1.0, 0.95), t)
+			elif time_hours >= 7.0 and time_hours < 17.0:
+				# Full daylight (7am - 5pm)
+				sun_energy = 1.2
+				ambient_energy = 0.9
+				sun_color = Color(1.0, 1.0, 0.95)
+			elif time_hours >= 17.0 and time_hours < 19.0:
+				# Sunset (5pm - 7pm)
+				var t = (time_hours - 17.0) / 2.0
+				sun_energy = lerp(1.2, 0.0, t)
+				ambient_energy = lerp(0.9, 0.0, t)
+				if time_hours < 18.0:
+					var t2 = (time_hours - 17.0) / 1.0
+					sun_color = Color(1.0, 1.0, 0.95).lerp(Color(1.0, 0.45, 0.1), t2) # Sunset gold
+				else:
+					var t2 = (time_hours - 18.0) / 1.0
+					sun_color = Color(1.0, 0.45, 0.1).lerp(Color(0.8, 0.15, 0.05), t2) # Crimson red
 			else:
-				light.light_energy = 1.0
+				# Night (7pm - 4am) - Pitch black
+				sun_energy = 0.0
+				ambient_energy = 0.0
+				
+			light.light_energy = sun_energy
+			light.light_color = sun_color
 
 	# Update environment based on underground state
 	if has_node("WorldEnvironment") and original_env:
@@ -230,7 +271,23 @@ func _update_lighting_and_env():
 			we.environment.background_color = original_env.background_color
 			we.environment.ambient_light_source = original_env.ambient_light_source
 			we.environment.ambient_light_color = original_env.ambient_light_color
-			we.environment.ambient_light_energy = original_env.ambient_light_energy
+			
+			# Apply calculated ambient energy and sky background energy
+			var time_hours = GameManager.time_hours
+			var ambient_energy = 0.0
+			if time_hours >= 4.0 and time_hours < 5.0:
+				ambient_energy = lerp(0.0, 0.15, (time_hours - 4.0) / 1.0)
+			elif time_hours >= 5.0 and time_hours < 7.0:
+				ambient_energy = lerp(0.15, 0.9, (time_hours - 5.0) / 2.0)
+			elif time_hours >= 7.0 and time_hours < 17.0:
+				ambient_energy = 0.9
+			elif time_hours >= 17.0 and time_hours < 19.0:
+				ambient_energy = lerp(0.9, 0.0, (time_hours - 17.0) / 2.0)
+			else:
+				ambient_energy = 0.0
+				
+			we.environment.ambient_light_energy = original_env.ambient_light_energy * ambient_energy
+			we.environment.background_energy_multiplier = original_env.background_energy_multiplier * ambient_energy
 
 func _on_station_area_entered(_area):
 	pass
